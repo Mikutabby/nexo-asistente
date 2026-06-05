@@ -1,0 +1,11 @@
+# Ejemplo de crontab para Nexo Asistente
+# Ajusta las rutas segun tu instalacion
+
+# Monitoreo de temperatura (cada 2 minutos)
+# */2 * * * * $HOME/.local/bin/temp-monitor.sh >/dev/null 2>&1
+
+# Limpieza automatica (diario a las 3 AM)
+# 0 3 * * * $HOME/.local/bin/limpiar >/dev/null 2>&1
+
+# Backup automatico (diario a las 4 AM)
+# 0 4 * * * $HOME/.local/bin/nexo-backup.sh >/dev/null 2>&1
