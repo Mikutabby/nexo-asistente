@@ -138,7 +138,11 @@ cp "$SCRIPT_DIR/voice/voice.sh" "$OPENCODE_DIR/" 2>/dev/null && chmod +x "$OPENC
 cp "$SCRIPT_DIR/tools/nexo-diary" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/nexo-diary"
 cp "$SCRIPT_DIR/tools/nexo-evaluate" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/nexo-evaluate"
 cp "$SCRIPT_DIR/tools/nexo-tools" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/nexo-tools"
+cp "$SCRIPT_DIR/tools/nexo-skill" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/nexo-skill"
 cp "$SCRIPT_DIR/tools/nexo-wake" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/nexo-wake"
+
+# Skills
+cp -r "$SCRIPT_DIR/skills" "$HOME/.nexo-skills/" 2>/dev/null && ok "Skills de ejemplo copiados a ~/.nexo-skills" || true
 
 # Backup
 cp "$SCRIPT_DIR/backup/nexo-backup.sh" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/nexo-backup.sh"
@@ -196,9 +200,28 @@ if [[ "$SETUP_TEMP" =~ ^[Ss]$ ]]; then
         warn "No se pudo configurar crontab"
 fi
 
-# ─── 9. Configurar backup automatico ───────────────────────────────────────
+# ─── 9. Instalar Graphify (opcional) ──────────────────────────────────────
 echo ""
-info "Paso 6: Backup automatico (OPCIONAL)"
+info "Paso 9: Graphify - Grafo de conocimiento para codigo (OPCIONAL)"
+read -p "Instalar Graphify? Convierte tu codigo en un grafo consultable [s/N]: " SETUP_GRAPHIFY
+if [[ "$SETUP_GRAPHIFY" =~ ^[Ss]$ ]]; then
+    if command -v pipx &>/dev/null; then
+        pipx install graphifyy 2>/dev/null && ok "Graphify instalado via pipx" || warn "No se pudo instalar Graphify"
+    else
+        pip3 install graphifyy 2>/dev/null || pip3 install --break-system-packages graphifyy 2>/dev/null && \
+            ok "Graphify instalado" || warn "No se pudo instalar Graphify (necesita pipx o pip)"
+    fi
+    
+    if command -v graphify &>/dev/null; then
+        graphify install --platform opencode 2>/dev/null && \
+            ok "Graphify registrado en OpenCode. Usa: /graphify ." || \
+            warn "No se pudo registrar en OpenCode"
+    fi
+fi
+
+# ─── 10. Configurar backup automatico ───────────────────────────────────────
+echo ""
+info "Paso 10: Backup automatico (OPCIONAL)"
 read -p "Configurar backup diario con cron? [s/N]: " SETUP_BACKUP
 if [[ "$SETUP_BACKUP" =~ ^[Ss]$ ]]; then
     (crontab -l 2>/dev/null; echo "0 4 * * * $INSTALL_DIR/nexo-backup.sh >/dev/null 2>&1") | crontab - 2>/dev/null && \
@@ -215,9 +238,9 @@ if [[ "$SETUP_BACKUP" =~ ^[Ss]$ ]]; then
     fi
 fi
 
-# ─── 10. Inicializar memoria ────────────────────────────────────────────────
+# ─── 11. Inicializar memoria ────────────────────────────────────────────────
 echo ""
-info "Paso 7: Inicializar memoria de Nexo"
+info "Paso 11: Inicializar memoria de Nexo"
 read -p "Inicializar memoria persistente ahora? [S/n]: " INIT_MEM
 INIT_MEM="${INIT_MEM:-S}"
 
@@ -247,9 +270,9 @@ EOF
     fi
 fi
 
-# ─── 11. PATH ───────────────────────────────────────────────────────────────
+# ─── 12. PATH ───────────────────────────────────────────────────────────────
 echo ""
-info "Paso 8: Agregar INSTALL_DIR al PATH"
+info "Paso 12: Agregar INSTALL_DIR al PATH"
 if ! echo "$PATH" | grep -q "$INSTALL_DIR"; then
     SHELL_CONFIG="$HOME/.bashrc"
     if [ -f "$HOME/.zshrc" ]; then

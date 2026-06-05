@@ -1,0 +1,20 @@
+{
+  "name": "ejemplo",
+  "version": "1.0.0",
+  "description": "Descripcion del skill ejemplo",
+  "author": "Nexo",
+  "commands": {
+    "hola": {
+      "description": "Comando de ejemplo",
+      "exec": "echo \"Hola desde el skill ejemplo!\""
+    },
+    "fecha": {
+      "description": "Muestra la fecha y hora",
+      "exec": "echo \"Hoy es $(date)\""
+    },
+    "ejemplo": {
+      "description": "Ejecuta script de ejemplo",
+      "exec": "./scripts/ejemplo.sh"
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "name": "sistema",
+  "version": "1.0.0",
+  "description": "Monitoreo del sistema: CPU, RAM, disco, temperatura, uptime",
+  "author": "Nexo",
+  "commands": {
+    "resumen": {
+      "description": "Resumen rapido del sistema",
+      "exec": "echo \"=== 🖥 SISTEMA ===\" && echo \"Uptime: $(uptime -p)\" && echo \"CPU: $(grep -c ^processor /proc/cpuinfo) cores, $(top -bn1 | grep 'Cpu(s)' | awk '{print $2+$4\"% uso\"}')\" && echo \"RAM: $(free -h | awk '/^Mem/ {print $3\"/\"$2}')\" && echo \"Disco: $(df -h / | awk 'NR==2 {print $3\"/\"$2}')\" && [ -f /sys/class/thermal/thermal_zone0/temp ] && echo \"Temp: $(($(cat /sys/class/thermal/thermal_zone0/temp)/1000))°C\" || true"
+    },
+    "cpu": {
+      "description": "Uso de CPU en tiempo real",
+      "exec": "echo \"Top 5 procesos por CPU:\" && ps aux --sort=-%cpu | head -6"
+    },
+    "ram": {
+      "description": "Uso de memoria RAM",
+      "exec": "free -h && echo \"\" && echo \"Top 5 procesos por RAM:\" && ps aux --sort=-%mem | head -6"
+    },
+    "disco": {
+      "description": "Uso de disco",
+      "exec": "df -h | grep -v tmpfs | grep -v udev"
+    },
+    "temp": {
+      "description": "Temperatura del sistema",
+      "exec": "for f in /sys/class/thermal/thermal_zone*/temp; do echo \"$(basename $(dirname $f)): $(($(cat $f)/1000))°C\"; done 2>/dev/null || echo \"No disponible\""
+    },
+    "puertos": {
+      "description": "Puertos abiertos",
+      "exec": "ss -tuln | tail -n+2 | column -t"
+    }
+  }
+}

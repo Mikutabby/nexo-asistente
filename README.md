@@ -32,7 +32,12 @@ nexo-asistente/
 │   ├── nexo-diary     Resumidor diario de interacciones
 │   ├── nexo-evaluate  Evaluador de tareas
 │   ├── nexo-tools     Registro de herramientas
+│   ├── nexo-skill     Sistema de skills (plugins instalables)
 │   └── nexo-wake      Deteccion de palabra de activacion
+├── skills/            Skills preinstalados (sistema, web, ejemplo)
+│   ├── ejemplo/       Skill template de ejemplo
+│   ├── sistema/       Monitoreo del sistema (CPU, RAM, disco, temp)
+│   └── web/           Herramientas web (IP publica, DNS, QR)
 ├── backup/            Backup y restore
 │   ├── nexo-backup.sh Backup cifrado con GPG
 │   └── nexo-restore.sh Restore de emergencia
@@ -75,13 +80,15 @@ El instalador es interactivo y te guiara por cada paso:
 Nexo es modular. Puedes activar solo lo que necesitas:
 
 | Componente | Descripcion | Como activarlo |
-|---|---|---|
+|---|---|---|---|
 | Monitor temp | Apaga el PC si se sobrecalienta | `install.sh` (paso 5) |
 | Voz TTS | Nexo habla por los parlantes | Automatico si instalas dependencias |
 | Voz STT | Nexo escucha lo que decis | `voice.sh` con SpeechRecognition |
-| Backup cifrado | Backup diario con GPG | `install.sh` (paso 6) |
+| Backup cifrado | Backup diario con GPG | `install.sh` (paso 10) |
 | Wake word | Nexo escucha su nombre | `nexo-wake daemon start` |
-| Knowledge graph | Memoria semantica | `install.sh` (paso 7) |
+| Knowledge graph | Memoria semantica | `install.sh` (paso 11) |
+| Skills | Plugins de funcionalidad | `install.sh` (incluido) |
+| Graphify | Grafo de conocimiento para codigo | `install.sh` (paso 9) o `pipx install graphifyy` |
 
 ## Personalizacion
 
@@ -91,6 +98,61 @@ Nexo se adapta a vos con el tiempo, pero puedes acelerar el proceso:
 - Mostrale tus rutinas: usalo regularmente y aprendera tus horarios
 - Pedile que recuerde cosas: "Nexo, recorda que mi contraseña de WiFi es X"
 - Agregale herramientas: `nexo-tools add nombre descripcion comando`
+
+## Skills (Plugins)
+
+Nexo tiene un sistema de skills que permite agregar funcionalidades como plugins:
+
+```bash
+# Listar skills instalados
+nexo-skill list
+
+# Ver informacion de un skill
+nexo-skill info sistema
+
+# Ejecutar un comando de un skill
+nexo-skill run sistema resumen
+nexo-skill run web ip
+nexo-skill run web dns google.com
+
+# Crear un skill nuevo
+nexo-skill create mi-skill
+```
+
+Los skills se almacenan en `~/.nexo-skills/` y cada uno tiene un `skill.json` con sus comandos.
+
+### Skills incluidos
+
+| Skill | Comandos | Descripcion |
+|---|---|---|
+| `sistema` | resumen, cpu, ram, disco, temp, puertos | Monitoreo del sistema |
+| `web` | ip, warp-status, dns, qr | Herramientas web |
+| `ejemplo` | hola, fecha, ejemplo | Template de ejemplo |
+
+## Graphify — Grafo de Conocimiento para Codigo
+
+Nexo incluye integracion con [Graphify](https://github.com/safishamsi/graphify), una herramienta que convierte cualquier carpeta de proyecto en un grafo de conocimiento consultable.
+
+**Como funciona:**
+1. Analiza tu codigo con tree-sitter (100% local, sin gastar tokens)
+2. Opcionalmente extrae relaciones semanticas de docs e imagenes via LLM
+3. Genera un grafo consultable con visualizacion interactiva
+
+**Instalacion (opcional):**
+```bash
+pipx install graphifyy
+graphify install --platform opencode
+```
+
+**Uso diario (dentro del asistente):**
+```
+/graphify .                        # construir grafo del proyecto
+/graphify query "que hace X"       # preguntar al grafo
+/graphify path "A" "B"             # camino mas corto entre nodos
+/graphify explain "Funcion"        # explicar un nodo
+```
+
+Graphify reduce hasta 71.5x el consumo de tokens vs leer archivos en bruto.
 
 ## Backup y restauracion
 

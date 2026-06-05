@@ -1,0 +1,24 @@
+{
+  "name": "web",
+  "version": "1.0.0",
+  "description": "Herramientas web: IP publica, DNS, HTTP checks, QR",
+  "author": "Nexo",
+  "commands": {
+    "ip": {
+      "description": "Muestra IP publica",
+      "exec": "echo \"🌐 IP Publica:\" && curl -s ifconfig.me && echo \"\" && echo \"ISP: $(curl -s ipinfo.io/org 2>/dev/null || echo 'N/A')\""
+    },
+    "warp-status": {
+      "description": "Estado de WARP",
+      "exec": "echo \"WARP:\" && warp-cli --accept-tos status 2>/dev/null || echo \"No instalado\" && echo \"\" && echo \"IP real: $(curl -s ifconfig.me 2>/dev/null || echo 'N/A')\""
+    },
+    "dns": {
+      "description": "Resuelve DNS de un dominio",
+      "exec": "[ -z \"$1\" ] && echo \"Uso: nexo-skill run web dns <dominio>\" && exit 1 && echo \"🔍 Resolviendo $1...\" && host \"$1\" 2>/dev/null || nslookup \"$1\" 2>/dev/null || dig \"$1\" +short 2>/dev/null"
+    },
+    "qr": {
+      "description": "Genera codigo QR (texto o URL). Args: nexo-skill run web qr <texto>",
+      "exec": "[ -z \"$1\" ] && echo \"Uso: nexo-skill run web qr <texto>\" && exit 1 && echo \"$1\" | qrencode -t ANSIUTF8 2>/dev/null || echo \"❌ qrencode no instalado. sudo apt install qrencode\""
+    }
+  }
+}
