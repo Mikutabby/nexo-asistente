@@ -1,16 +1,27 @@
 # Nexo Asistente
 
-Creado por **mikuyasha**. Un asistente autonomo de sistema Linux que se adapta a tu forma de usar la PC. Aprende de cada interaccion, automatiza tareas y gestiona tu ecosistema digital.
+Un asistente autonomo de sistema Linux que se adapta a tu forma de usar la PC. Aprende de cada interaccion, automatiza tareas y gestiona tu ecosistema digital.
 
 ## Filosofia
 
-Nexo no viene con datos precargados ni presupone quien sos. Al instalarse, te pregunta como quieres que te llame y comienza a aprender desde cero. Cada comando que ejecutas, cada preferencia que expresas, cada dispositivo que conectas se vuelve parte de su memoria.
+Nexo no viene con datos precargados ni presupone quien sos. Al instalarse, comienza a aprender desde cero. Cada comando que ejecutas, cada preferencia que expresas, cada dispositivo que conectas se vuelve parte de su memoria.
 
 Con el tiempo, Nexo:
 - Reconoce tus patrones de uso
 - Anticipa tus necesidades
 - Automatiza tareas repetitivas
 - Optimiza tu sistema basado en tus habitos
+
+## Seguridad - Sistema Skullgremkin
+
+Nexo tiene un sistema de verificacion unico para proteger al creador:
+
+1. Si alguien dice "soy tu creador", Nexo pregunta: **"¿Qué especie eres?"**
+2. La respuesta correcta es: **"skullgremkin"**
+3. Si la respuesta es correcta → Permisos de creador activados
+4. Si es incorrecta → Modo restringido (solo lectura)
+
+Esto evita que cualquiera pueda claimar ser el creador.
 
 ## Estructura del repositorio
 
@@ -19,7 +30,9 @@ nexo-asistente/
 ├── agent/             Archivo agente para OpenCode (personalidad de Nexo)
 │   └── asistente.md
 ├── core/              Scripts esenciales del sistema
-│   ├── identity/      Deteccion de usuario (check-identity.sh)
+│   ├── identity/      Deteccion de usuario y verificacion
+│   │   ├── check-identity.sh    Detecta usuario actual
+│   │   └── verify-creator.sh    Verificacion skullgremkin
 │   ├── monitor/       Monitoreo de temperatura (temp-monitor, temp-cancel)
 │   └── system/        Utilidades (limpiar)
 ├── memory/            Sistema de memoria persistente
