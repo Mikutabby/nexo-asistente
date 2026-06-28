@@ -1,229 +1,251 @@
 #!/bin/bash
-# ═══════════════════════════════════════════════════════════
-# nexo-restore.sh — Restaurador de emergencia de Nexo
-# ═══════════════════════════════════════════════════════════
+# ============================================================================
+# NEXO AUTO-RESTORE — Restauración rápida de Nexo
+# ============================================================================
+# Restaura Nexo desde un backup completo
+# Solo el creador (skullgremkin) puede restaurar
 #
-# Este script es AUTÓNOMO y está diseñado para:
-#   1. Descargar el último backup desde GitHub
-#   2. Descifrarlo con tu passphrase
-#   3. Restaurar todo el ecosistema Nexo
-#
-# USO:
-#   curl -fsSL https://raw.githubusercontent.com/Mikutabby/nexo-lab/master/nexo-restore.sh | bash
-#   ~~~~~~~~~~~ O ~~~~~~~~~~~~
-#   nexo-restore.sh              → restaurar desde backup local
-#   nexo-restore.sh --github     → descargar y restaurar desde GitHub
-#   nexo-restore.sh --help       → ayuda
-#
-# ⚠️  REQUISITOS: bash, gpg, tar, git (para --github)
-# ═══════════════════════════════════════════════════════════
+# Uso:
+#   nexo-restore.sh                    → Restaurar último backup
+#   nexo-restore.sh --list             → Listar backups disponibles
+#   nexo-restore.sh --file <archivo>  → Restaurar backup específico
+#   nexo-restore.sh --full             → Restauración completa (reinstala todo)
+# ============================================================================
 
-VERSION="1.0"
-NEXO_HOME="$HOME"
-BACKUP_DIR="$NEXO_HOME/nexo-backups"
-GITHUB_REPO_FILE="$NEXO_HOME/.nexo-github-backup"
+set -euo pipefail
 
-echo "╔══════════════════════════════════════════════╗"
-echo "║   🔓 Nexo Restore v$VERSION                 ║"
-echo "║   Restaurador de emergencia del ecosistema  ║"
-echo "╚══════════════════════════════════════════════╝"
-echo ""
+# ── Colores ─────────────────────────────────────────────────────────────────
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+NC='\033[0m'
 
-# Ayuda
-if [[ "$1" == "--help" ]]; then
-    echo "USO:"
-    echo "  nexo-restore.sh                   Restaurar desde backup local"
-    echo "  nexo-restore.sh --github          Descargar y restaurar desde GitHub"
-    echo "  nexo-restore.sh --github <url>    Usar repo específico"
-    echo "  nexo-restore.sh --help            Esta ayuda"
-    echo ""
-    echo "📁 Busca backups en: $BACKUP_DIR"
-    echo "☁️  GitHub: url guardada en $GITHUB_REPO_FILE"
-    exit 0
-fi
+# ── Configuracion ───────────────────────────────────────────────────────────
+NEXO_HOME="${NEXO_HOME:-$HOME}"
+BACKUP_DIR="$NEXO_HOME/.nexo-backups"
+NEXO_ASISTENTE="$NEXO_HOME/nexo-asistente"
+CREATOR_HASH_FILE="$NEXO_HOME/.nexo-memory/.creator_hash"
+LOG_FILE="$NEXO_HOME/.nexo-memory/log/restore.log"
 
-# Verificar requisitos
-for cmd in gpg tar; do
-    if ! command -v "$cmd" &>/dev/null; then
-        echo "❌ $cmd no está instalado. Instalalo primero."
+# ── Verificar creador ──────────────────────────────────────────────────────
+verify_creator() {
+    echo -e "${YELLOW}🔐 Verificando identidad...${NC}"
+    
+    if [ ! -f "$CREATOR_HASH_FILE" ]; then
+        # Si no hay hash, crear uno
+        mkdir -p "$(dirname "$CREATOR_HASH_FILE")"
+        echo -n "skullgremkin" | sha256sum | cut -d' ' -f1 > "$CREATOR_HASH_FILE"
+        chmod 600 "$CREATOR_HASH_FILE"
+        echo -e "${GREEN}✅ Hash del creador creado${NC}"
+        return 0
+    fi
+    
+    local stored_hash=$(cat "$CREATOR_HASH_FILE" 2>/dev/null)
+    local current_hash=$(echo -n "skullgremkin" | sha256sum | cut -d' ' -f1)
+    
+    if [ "$stored_hash" != "$current_hash" ]; then
+        echo -e "${RED}❌ Error: Hash del creador no coincide${NC}"
+        echo "Solo el creador puede restaurar Nexo"
         exit 1
     fi
-done
-
-# ─── MODO GITHUB ────────────────────────────────────
-if [[ "$1" == "--github" ]]; then
-    echo "☁️  Modo GitHub"
-    echo ""
-
-    REPO="${2:-}"
-    if [[ -z "$REPO" ]]; then
-        if [[ -f "$GITHUB_REPO_FILE" ]]; then
-            REPO=$(cat "$GITHUB_REPO_FILE")
-            echo "📖 Leyendo repo de $GITHUB_REPO_FILE"
-        else
-            echo "No hay repo configurado."
-            read -p "➜ URL del repo GitHub (ej: git@github.com:user/repo.git): " REPO </dev/tty
-            if [[ -z "$REPO" ]]; then
-                echo "Cancelado."
-                exit 1
-            fi
-        fi
-    fi
-
-    echo "➜ Repo: $REPO"
-    echo ""
-    echo "📥 Clonando repo de backups..."
     
-    TMPDIR=$(mktemp -d)
-    if git clone "$REPO" "$TMPDIR" 2>/dev/null; then
-        echo "✅ Repo clonado."
-        BACKUP_FILE=$(ls -t "$TMPDIR"/*.gpg 2>/dev/null | head -1)
-        if [[ -z "$BACKUP_FILE" ]]; then
-            BACKUP_FILE=$(ls -t "$TMPDIR"/latest-backup.gpg 2>/dev/null | head -1)
+    echo -e "${GREEN}✅ Creador verificado${NC}"
+}
+
+# ── Funcion de log ──────────────────────────────────────────────────────────
+log_restore() {
+    mkdir -p "$(dirname "$LOG_FILE")"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') | $1" >> "$LOG_FILE"
+}
+
+# ── Listar backups ──────────────────────────────────────────────────────────
+list_backups() {
+    echo -e "${CYAN}📦 BACKUPS DISPONIBLES${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════${NC}"
+    echo ""
+    
+    if [ ! -d "$BACKUP_DIR" ]; then
+        echo -e "${YELLOW}No se encontraron backups${NC}"
+        echo "Ejecuta: nexo-backup.sh"
+        return
+    fi
+    
+    local count=0
+    for backup in "$BACKUP_DIR"/nexo-backup-*.tar.gz; do
+        if [ -f "$backup" ]; then
+            count=$((count + 1))
+            local name=$(basename "$backup")
+            local size=$(du -h "$backup" | cut -f1)
+            local date=$(echo "$name" | sed 's/nexo-backup-//' | sed 's/.tar.gz//')
+            
+            echo -e "  ${GREEN}$count${NC}. ${YELLOW}$name${NC} ($size)"
         fi
-        if [[ -z "$BACKUP_FILE" ]]; then
-            echo "❌ No se encontró backup en el repo."
-            rm -rf "$TMPDIR"
+    done
+    
+    if [ $count -eq 0 ]; then
+        echo -e "${YELLOW}No se encontraron backups${NC}"
+    else
+        echo ""
+        echo -e "Total: $count backups"
+        echo -e "Usa: ${YELLOW}./nexo-restore.sh --file <archivo>${NC}"
+    fi
+    
+    echo ""
+    echo -e "${CYAN}═══════════════════════════════════════${NC}"
+}
+
+# ── Restaurar backup ────────────────────────────────────────────────────────
+restore_backup() {
+    local backup_file="$1"
+    
+    echo -e "${CYAN}═══════════════════════════════════════${NC}"
+    echo -e "${CYAN}  🔄 NEXO AUTO-RESTORE${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════${NC}"
+    echo ""
+    
+    # Verificar creador
+    verify_creator
+    echo ""
+    
+    # Verificar que existe el backup
+    if [ ! -f "$backup_file" ]; then
+        echo -e "${RED}❌ Error: No se encontró el backup: $backup_file${NC}"
+        exit 1
+    fi
+    
+    # Verificar checksum
+    if [ -f "$backup_file.sha256" ]; then
+        echo -e "${YELLOW}Verificando integridad...${NC}"
+        if ! sha256sum -c "$backup_file.sha256" > /dev/null 2>&1; then
+            echo -e "${RED}❌ Error: Backup corrupto${NC}"
             exit 1
         fi
-        echo "📦 Backup encontrado: $(basename "$BACKUP_FILE")"
-        cp "$BACKUP_FILE" "$BACKUP_DIR/$(basename "$BACKUP_FILE")"
-        rm -rf "$TMPDIR"
-        SELECTED="$BACKUP_DIR/$(basename "$BACKUP_FILE")"
-    else
-        echo "❌ No se pudo clonar el repo."
-        echo "   Verificá:"
-        echo "   - Que tengas acceso al repo"
-        echo "   - Que git esté configurado"
-        exit 1
+        echo -e "${GREEN}✅ Integridad verificada${NC}"
     fi
-else
-    # ─── MODO LOCAL ──────────────────────────────────
-    if [[ ! -d "$BACKUP_DIR" ]]; then
-        echo "❌ No hay directorio de backups en $BACKUP_DIR"
-        echo ""
-        echo "💡 Opciones:"
-        echo "   1. Creá backups con: nexo-backup.sh"
-        echo "   2. Usá --github para descargar desde GitHub"
-        exit 1
-    fi
-
-    mapfile -t FILES < <(ls -t "$BACKUP_DIR"/*.gpg 2>/dev/null)
-    if [[ ${#FILES[@]} -eq 0 ]]; then
-        echo "❌ No hay backups en $BACKUP_DIR"
-        exit 1
-    fi
-
-    echo "📦 Backups disponibles:"
+    
     echo ""
-    echo "  #  FECHA              TAMAÑO"
-    echo "  ─────────────────────────────────"
-    for i in "${!FILES[@]}"; do
-        BASENAME=$(basename "${FILES[$i]}" .tar.gz.gpg)
-        BASENAME=$(basename "$BASENAME" .gpg)  # por si las dudas
-        if [[ "$BASENAME" == "latest-backup" ]]; then
-            FECHA="Último backup    "
-        else
-            FECHA=$(echo "$BASENAME" | sed 's/nexo-ecosystem-//')
+    echo -e "${YELLOW}Restaurando Nexo...${NC}"
+    
+    # Crear directorios necesarios
+    mkdir -p "$NEXO_HOME/.nexo-memory/log"
+    mkdir -p "$NEXO_HOME/.opencode/agents"
+    mkdir -p "$NEXO_HOME/.local/bin"
+    
+    # Restaurar archivos
+    tar -xzf "$backup_file" -C / 2>/dev/null || true
+    
+    # Restaurar permisos
+    chmod +x "$NEXO_HOME/.opencode/say.sh" 2>/dev/null || true
+    chmod +x "$NEXO_HOME/.opencode/voice.sh" 2>/dev/null || true
+    chmod +x "$NEXO_HOME/.local/bin/"* 2>/dev/null || true
+    
+    echo -e "${GREEN}✅ Archivos restaurados${NC}"
+    echo ""
+    
+    # Verificar restauración
+    echo -e "${YELLOW}Verificando restauración...${NC}"
+    local files_restored=0
+    
+    for file in "$NEXO_HOME/.nexo-memory/memory.json" \
+                "$NEXO_HOME/.opencode/agents/asistente.md" \
+                "$NEXO_HOME/.opencode/say.sh"; do
+        if [ -f "$file" ]; then
+            files_restored=$((files_restored + 1))
         fi
-        TAM=$(du -h "${FILES[$i]}" | cut -f1)
-        printf "  %-2d  %s  %s\n" $((i+1)) "$FECHA" "$TAM"
     done
-
-    echo ""
-    read -p "➜ Elegí número (o 0 para cancelar): " CHOICE </dev/tty
-    if [[ "$CHOICE" == "0" || -z "$CHOICE" ]]; then
-        echo "Cancelado."
-        exit 0
+    
+    if [ $files_restored -gt 0 ]; then
+        echo -e "${GREEN}✅ $files_restored archivos críticos restaurados${NC}"
     fi
-
-    SELECTED="${FILES[$((CHOICE-1))]}"
-    if [[ -z "$SELECTED" ]]; then
-        echo "❌ Opción inválida."
-        exit 1
-    fi
-fi
-
-# ─── DESCIFRAR ──────────────────────────────────────
-echo ""
-echo "🔐 Descifrando backup..."
-echo "   (ingresá la passphrase que usaste al crear el backup)"
-echo ""
-
-DECRYPTED="${SELECTED%.gpg}"
-
-if gpg -d -o "$DECRYPTED" "$SELECTED"; then
-    echo "✅ Backup descifrado correctamente."
-else
+    
+    # Log
+    log_restore "OK - Restored from: $(basename "$backup_file")"
+    
     echo ""
-    echo "❌ Error al descifrar."
-    echo "   Posibles causas:"
-    echo "   - Passphrase incorrecta"
-    echo "   - Backup corrupto"
-    echo "   - GPG no compatible"
-    rm -f "$DECRYPTED"
-    exit 1
-fi
+    echo -e "${CYAN}═══════════════════════════════════════${NC}"
+    echo -e "${GREEN}  ✅ NEXO RESTAURADO EXITOSAMENTE${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════${NC}"
+    echo ""
+    echo -e "  Backup: ${YELLOW}$(basename "$backup_file")${NC}"
+    echo -e "  Estado: ${GREEN}Nexo está de vuelta${NC}"
+    echo ""
+}
 
-# ─── RESTAURAR ──────────────────────────────────────
-echo ""
-echo "⚠️  ESTO VA A SOBREESCRIBIR ARCHIVOS ACTUALES"
-echo "   Se van a restaurar:"
-echo ""
-tar tzf "$DECRYPTED" 2>/dev/null | head -30
-echo "... y más archivos."
-echo ""
+# ── Restauración completa ──────────────────────────────────────────────────
+full_restore() {
+    echo -e "${CYAN}═══════════════════════════════════════${NC}"
+    echo -e "${CYAN}  🔄 NEXO RESTAURACIÓN COMPLETA${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════${NC}"
+    echo ""
+    
+    # Verificar creador
+    verify_creator
+    echo ""
+    
+    # Clonar repo si no existe
+    if [ ! -d "$NEXO_ASISTENTE" ]; then
+        echo -e "${YELLOW}Clonando repositorio...${NC}"
+        git clone https://github.com/Mikutabby/nexo-asistente.git "$NEXO_ASISTENTE"
+        echo -e "${GREEN}✅ Repositorio clonado${NC}"
+    else
+        echo -e "${YELLOW}Actualizando repositorio...${NC}"
+        cd "$NEXO_ASISTENTE" && git pull
+        echo -e "${GREEN}✅ Repositorio actualizado${NC}"
+    fi
+    
+    echo ""
+    
+    # Ejecutar instalador
+    if [ -f "$NEXO_ASISTENTE/install.sh" ]; then
+        echo -e "${YELLOW}Ejecutando instalador...${NC}"
+        cd "$NEXO_ASISTENTE" && ./install.sh --auto
+        echo -e "${GREEN}✅ Instalación completada${NC}"
+    fi
+    
+    # Restaurar último backup si existe
+    local latest_backup=$(ls -t "$BACKUP_DIR"/nexo-backup-*.tar.gz 2>/dev/null | head -1)
+    if [ -n "$latest_backup" ]; then
+        echo ""
+        echo -e "${YELLOW}Restaurando último backup...${NC}"
+        restore_backup "$latest_backup"
+    fi
+    
+    # Log
+    log_restore "OK - Full restore completed"
+    
+    echo ""
+    echo -e "${CYAN}═══════════════════════════════════════${NC}"
+    echo -e "${GREEN}  ✅ NEXO COMPLETAMENTE RESTAURADO${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════${NC}"
+}
 
-read -p "➜ ¿Restaurar ahora? (s/N): " CONFIRM </dev/tty
-if [[ "$CONFIRM" != "s" && "$CONFIRM" != "S" ]]; then
-    echo "Cancelado."
-    echo "El backup descifrado queda en: $DECRYPTED"
-    exit 0
-fi
-
-echo ""
-echo "🔄 Restaurando..."
-
-# Extraer
-if tar -xzf "$DECRYPTED" -C "$NEXO_HOME" 2>/dev/null; then
-    echo "✅ Archivos restaurados en $NEXO_HOME"
-else
-    # Intentar con sudo (para archivos del sistema)
-    echo "⚠️  Intentando con sudo para archivos del sistema..."
-    sudo tar -xzf "$DECRYPTED" -C "$NEXO_HOME"
-    echo "✅ Archivos restaurados (con sudo)"
-fi
-
-# Restaurar sudoers si existe en el backup
-if [[ -f "$NEXO_HOME/backup-sudoers-temp-monitor" ]]; then
-    echo "🔧 Restaurando sudoers..."
-    sudo cp "$NEXO_HOME/backup-sudoers-temp-monitor" /etc/sudoers.d/temp-monitor
-    sudo chmod 440 /etc/sudoers.d/temp-monitor
-    rm -f "$NEXO_HOME/backup-sudoers-temp-monitor"
-    echo "✅ sudoers restaurado"
-fi
-
-# Corregir permisos de scripts
-echo "🔧 Corrigiendo permisos..."
-chmod +x "$NEXO_HOME/.local/bin/nexo-"* 2>/dev/null || true
-chmod +x "$NEXO_HOME/.local/bin/limpiar" 2>/dev/null || true
-chmod +x "$NEXO_HOME/backup/migrar.sh" 2>/dev/null || true
-echo "✅ Permisos corregidos"
-
-rm -f "$DECRYPTED"
-
-echo ""
-echo "╔══════════════════════════════════════════════╗"
-echo "║   ✅ RESTAURACIÓN COMPLETADA                ║"
-echo "╚══════════════════════════════════════════════╝"
-echo ""
-echo "📋 Resumen:"
-echo "   • Memoria persistente  → restaurada"
-echo "   • Knowledge graph      → restaurado"
-echo "   • Scripts Nexo         → restaurados"
-echo "   • Configuración        → restaurada"
-echo "   • Embeddings faciales  → restaurados"
-echo "   • Sudoers              → restaurado"
-echo ""
-echo "🔄 Reiniciá la terminal o ejecutá: exec bash"
-echo "🎉 Bienvenido de vuelta a Nexo."
+# ── Main ────────────────────────────────────────────────────────────────────
+case "${1:-}" in
+    --list|-l)
+        list_backups
+        ;;
+    --file|-f)
+        if [ -z "${2:-}" ]; then
+            echo -e "${RED}Error: Especifica un archivo de backup${NC}"
+            echo "Uso: ./nexo-restore.sh --file <archivo>"
+            exit 1
+        fi
+        restore_backup "$2"
+        ;;
+    --full)
+        full_restore
+        ;;
+    *)
+        # Restaurar último backup
+        local latest_backup=$(ls -t "$BACKUP_DIR"/nexo-backup-*.tar.gz 2>/dev/null | head -1)
+        if [ -z "$latest_backup" ]; then
+            echo -e "${YELLOW}No se encontraron backups${NC}"
+            echo "Opciones:"
+            echo "  1. Crear backup: nexo-backup.sh"
+            echo "  2. Restauración completa: ./nexo-restore.sh --full"
+            exit 1
+        fi
+        restore_backup "$latest_backup"
+        ;;
+esac

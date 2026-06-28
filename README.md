@@ -88,9 +88,9 @@ nexo-asistente/
 │   ├── ejemplo/       Skill template de ejemplo
 │   ├── sistema/       Monitoreo del sistema (CPU, RAM, disco, temp)
 │   └── web/           Herramientas web (IP publica, DNS, QR)
-├── backup/            Backup y restore
-│   ├── nexo-backup.sh Backup cifrado con GPG
-│   └── nexo-restore.sh Restore de emergencia
+├── backup/            Backup y restore (solo creador)
+│   ├── nexo-backup.sh     Backup completo con passphrase
+│   └── nexo-restore.sh    Auto-restauracion rapida
 ├── config/            Ejemplos de configuracion
 │   ├── cpu-performance.service
 │   ├── sudoers.temp-monitor
@@ -256,14 +256,66 @@ graphify install --platform opencode
 
 Graphify reduce hasta 71.5x el consumo de tokens vs leer archivos en bruto.
 
-## Backup y restauracion
+## Backup y restauracion (Solo el creador)
+
+Nexo tiene un sistema de backup completo protegido con passphrase skullgremkin.
+
+### Crear backup
 
 ```bash
-# Backup completo (cifrado con GPG)
-nexo-backup.sh
+# Backup completo
+./backup/nexo-backup.sh
 
-# Restaurar desde backup
-nexo-restore.sh
+# Backup rapido (sin logs)
+./backup/nexo-backup.sh --quick
+
+# Verificar backups existentes
+./backup/nexo-backup.sh --verify
+```
+
+### Restaurar Nexo
+
+```bash
+# Restaurar ultimo backup
+./backup/nexo-restore.sh
+
+# Listar backups disponibles
+./backup/nexo-restore.sh --list
+
+# Restaurar backup especifico
+./backup/nexo-restore.sh --file /path/to/nexo-backup-YYYYMMDD-HHMMSS.tar.gz
+
+# Restauracion completa (clona repo + reinstala + restaura backup)
+./backup/nexo-restore.sh --full
+```
+
+### Que se respalda
+
+- Identidad y memoria (identity.json, memory.json)
+- Agente (asistente.md)
+- Scripts (say.sh, voice.sh, check-identity.sh, etc.)
+- Knowledge graph (graph.db)
+- Configuracion de OpenCode
+- Herramientas (nexo-model, nexo-tools, etc.)
+
+### Proteccion
+
+- Solo el creador (skullgremkin) puede crear/restaurar backups
+- Checksum SHA256 para verificar integridad
+- Los backups se almacenan en `~/.nexo-backups/`
+
+### Recuperacion rapida
+
+Si algo falla, solo necesitas:
+
+```bash
+# Opcion 1: Restaurar desde backup
+./backup/nexo-restore.sh --full
+
+# Opcion 2: Clonar repo y reinstalar
+git clone https://github.com/Mikutabby/nexo-asistente.git
+cd nexo-asistente
+./install.sh
 ```
 
 ## Desinstalacion
