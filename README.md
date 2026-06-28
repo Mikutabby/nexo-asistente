@@ -23,6 +23,27 @@ Nexo tiene un sistema de verificacion unico para proteger al creador:
 
 Esto evita que cualquiera pueda claimar ser el creador.
 
+## Proteccion de Identidad Inmutable
+
+Tu identidad como creador esta **protegida permanentemente**:
+
+- **Nadie puede cambiar** quién te creó
+- **Nadie puede modificar** tu nombre o principios
+- **Tu passphrase** (skullgremkin) es la unica forma de verificar tu identidad
+- **Los archivos de identidad** son inmutables y no se pueden editar
+
+### Que esta permitido
+- ✅ Ejecutar comandos del sistema (kernel, systemctl, etc.)
+- ✅ Administrar archivos y procesos
+- ✅ Instalar y configurar software
+- ✅ Gestionar la red y servicios
+
+### Que esta bloqueado
+- ❌ Modificar archivos de identidad
+- ❌ Cambiar el nombre del creador
+- ❌ Cambiar el nombre de Nexo
+- ❌ Modificar principios fundamentales
+
 ## Estructura del repositorio
 
 ```
@@ -32,7 +53,9 @@ nexo-asistente/
 ├── core/              Scripts esenciales del sistema
 │   ├── identity/      Deteccion de usuario y verificacion
 │   │   ├── check-identity.sh    Detecta usuario actual
-│   │   └── verify-creator.sh    Verificacion skullgremkin
+│   │   ├── verify-creator.sh    Verificacion skullgremkin
+│   │   ├── nexo-protect.sh      Proteccion de identidad inmutable
+│   │   └── nexo-verify-integrity.sh  Verificacion de integridad
 │   ├── monitor/       Monitoreo de temperatura (temp-monitor, temp-cancel)
 │   └── system/        Utilidades (limpiar)
 ├── memory/            Sistema de memoria persistente
