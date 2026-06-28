@@ -1,0 +1,41 @@
+#!/bin/bash
+# nexo-smart-switch — Automatic model switcher
+# Usage: nexo-smart-switch "user message"
+# Called by Nexo agent at start of each response
+# Switches model if a better one is detected for the task
+
+CONFIG_FILE="${OPENCODE_CONFIG:-$HOME/.opencode/opencode.json}"
+LAST_MODEL_FILE="/tmp/nexo-last-model"
+LOG_FILE="${NEXO_LOG:-$HOME/.nexo-memory/log/model-switches.log}"
+
+# Get detection result
+RESULT=$(~/.local/bin/nexo-auto-model "$1" 2>/dev/null)
+
+NEEDS_SWITCH=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin).get('needs_switch', False))" 2>/dev/null)
+
+if [ "$NEEDS_SWITCH" = "True" ]; then
+  SUGGESTED=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin).get('suggested_model', ''))" 2>/dev/null)
+  FRIENDLY=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin).get('friendly_name', ''))" 2>/dev/null)
+  INTENT=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin).get('intent', ''))" 2>/dev/null)
+  CURRENT=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin).get('current_model', ''))" 2>/dev/null)
+  
+  # Save last model for restore
+  echo "$CURRENT" > "$LAST_MODEL_FILE"
+  
+  # Apply switch
+  python3 -c "
+import json
+with open('$CONFIG_FILE', 'r') as f:
+    cfg = json.load(f)
+cfg['model'] = '$SUGGESTED'
+with open('$CONFIG_FILE', 'w') as f:
+    json.dump(cfg, f, indent=2)
+"
+  
+  # Log
+  mkdir -p "$(dirname "$LOG_FILE")"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') | AUTO: $CURRENT → $SUGGESTED ($INTENT)" >> "$LOG_FILE"
+  
+  # Output for Nexo to tell user
+  echo "🔄 Modelo: $FRIENDLY"
+fi

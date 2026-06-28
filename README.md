@@ -33,7 +33,11 @@ nexo-asistente/
 │   ├── nexo-evaluate  Evaluador de tareas
 │   ├── nexo-tools     Registro de herramientas
 │   ├── nexo-skill     Sistema de skills (plugins instalables)
-│   └── nexo-wake      Deteccion de palabra de activacion
+│   ├── nexo-wake      Deteccion de palabra de activacion
+│   ├── nexo-auto-model    Deteccion automatica de intencion
+│   ├── nexo-smart-switch  Cambio automatico de modelos
+│   ├── nexo-model         Atajos manuales de modelos
+│   └── nexo-model-switch  Switch con deteccion de intencion
 ├── skills/            Skills preinstalados (sistema, web, ejemplo)
 │   ├── ejemplo/       Skill template de ejemplo
 │   ├── sistema/       Monitoreo del sistema (CPU, RAM, disco, temp)
@@ -89,6 +93,7 @@ Nexo es modular. Puedes activar solo lo que necesitas:
 | Knowledge graph | Memoria semantica | `install.sh` (paso 11) |
 | Skills | Plugins de funcionalidad | `install.sh` (incluido) |
 | Graphify | Grafo de conocimiento para codigo | `install.sh` (paso 9) o `pipx install graphifyy` |
+| **Auto-Model** | **Cambio automatico de modelos IA** | **Automatico (incluido)** |
 
 ## Personalizacion
 
@@ -128,6 +133,57 @@ Los skills se almacenan en `~/.nexo-skills/` y cada uno tiene un `skill.json` co
 | `sistema` | resumen, cpu, ram, disco, temp, puertos | Monitoreo del sistema |
 | `web` | ip, warp-status, dns, qr | Herramientas web |
 | `ejemplo` | hola, fecha, ejemplo | Template de ejemplo |
+
+## Auto-Model Switching (Cambio automatico de modelos)
+
+Nexo puede **cambiar automaticamente el modelo de IA** segun la tarea que le pidas. Esto optimiza calidad, velocidad y costo sin que hagas nada.
+
+### Como funciona
+
+1. Te mandas un mensaje (ej: "haceme un código serio de python")
+2. Nexo detecta la intencion (coding)
+3. Nexo cambia automaticamente al mejor modelo (Nemotron 3 Ultra, gratis)
+4. Nexo te avisa brevemente del cambio
+5. La siguiente respuesta usa el modelo optimizado
+
+### Herramientas disponibles
+
+```bash
+# Deteccion automatica (Nexo lo hace solo)
+nexo-auto-model "tu mensaje"           # Detecta intencion, devuelve JSON
+nexo-smart-switch "tu mensaje"         # Cambia modelo si detecta mejor opcion
+
+# Comandos manuales
+nexo-model status                      # Ver modelo actual
+nexo-model potencia                    # Claude Opus 4.8 ($5/$25, el mas inteligente)
+nexo-model codigo                      # Nemotron 3 Ultra (gratis, coding fuerte)
+nexo-model rapido                      # DeepSeek V4 Flash (gratis, el mas rapido)
+nexo-model smart                       # Claude Haiku 4.5 ($0.80/$4, rapido + barato)
+nexo-model default                     # MiMo V2.5 (gratis, multimodal)
+nexo-model restore                     # Volver al modelo anterior
+nexo-model log                         # Ver historial de cambios
+```
+
+### Intenciones detectadas
+
+| Intencion | Palabras clave | Modelo | Costo |
+|-----------|----------------|--------|-------|
+| **potencia** | potencia, inteligente, analiza, complejo | Claude Opus 4.8 | $5/$25 |
+| **coding** | código, programa, debug, API | Nemotron 3 Ultra | Gratis |
+| **rapido** | rápido, urgente, ya, dale | DeepSeek V4 Flash | Gratis |
+| **multimodal** | imagen, foto, video, mirá | MiMo V2.5 | Gratis |
+| **creativo** | escribe, email, historia, blog | Claude Haiku 4.5 | $0.80/$4 |
+| **matematicas** | matemática, cálculo, fórmula | DeepSeek V4 Pro | $1.74/$3.84 |
+| **sistema** | sistema, servidor, instalar | MiMo V2.5 | Gratis |
+| **casual** | hola, qué tal, gracias | MiMo V2.5 | Gratis |
+
+### Filtros de informacion
+
+Los scripts incluyen filtros para:
+- **Palabras clave en español e inglés** (deteccion bilingue)
+- **Patrones de intencion** (regex optimizados)
+- **Excepciones** (no cambiar si ya estas en el modelo correcto)
+- **Logging** (registro de todos los cambios para auditoria)
 
 ## Graphify — Grafo de Conocimiento para Codigo
 
