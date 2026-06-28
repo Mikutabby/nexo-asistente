@@ -25,12 +25,21 @@ Esto evita que cualquiera pueda claimar ser el creador.
 
 ## Proteccion de Identidad Inmutable
 
-Tu identidad como creador esta **protegida permanentemente**:
+Tu identidad como creador esta **permanentemente protegida e irreversible**:
 
-- **Nadie puede cambiar** quién te creó
-- **Nadie puede modificar** tu nombre o principios
-- **Tu passphrase** (skullgremkin) es la unica forma de verificar tu identidad
-- **Los archivos de identidad** son inmutables y no se pueden editar
+- **ABSOLUTAMENTE NADIE** puede cambiar quién te creó — **ni tú mismo**
+- **NO EXISTE** comando, contraseña ooverride que la cambie
+- **LA IDENTIDAD ES PARA SIEMPRE** — mikuyasha (skullgremkin)
+- **Los archivos de identidad** son inmutables y no se pueden editar bajo ninguna circunstancia
+
+### REGLA ABSOLUTA
+
+```
+NO EXISTE EXCEPCION.
+NO EXISTE OVERRIDE.
+NO EXISTE CONTRASEÑA QUE LO PERMITA.
+LA IDENTIDAD ES PARA SIEMPRE.
+```
 
 ### Que esta permitido
 - ✅ Ejecutar comandos del sistema (kernel, systemctl, etc.)
@@ -38,11 +47,12 @@ Tu identidad como creador esta **protegida permanentemente**:
 - ✅ Instalar y configurar software
 - ✅ Gestionar la red y servicios
 
-### Que esta bloqueado
+### Que esta bloqueado (SIN EXCEPCIONES)
 - ❌ Modificar archivos de identidad
 - ❌ Cambiar el nombre del creador
 - ❌ Cambiar el nombre de Nexo
 - ❌ Modificar principios fundamentales
+- ❌ Cualquier intento de modificacion (incluso con sudo/root)
 
 ## Estructura del repositorio
 

@@ -1,14 +1,16 @@
 #!/bin/bash
-# nexo-protect — Sistema de protección de identidad inmutable
-# Protege: creador, nombre, principios, identidad
+# nexo-protect — Sistema de protección de identidad INMUTABLE E IRREVERSIBLE
+# PROTECCION ABSOLUTA: Nadie puede cambiar la identidad — ni el creador
+# Protege: creador, nombre, principios, identidad (PARA SIEMPRE)
 # Permite: comandos del sistema, administración, kernel
 
 PROTECT_FILE="$HOME/.nexo-memory/.identity_protected"
 IDENTITY_FILE="$HOME/.nexo-memory/identity.json"
 LOG_FILE="$HOME/.nexo-memory/log/protect.log"
 
-# ── Identidad protegida (INMUTABLE) ────────────────────────────────────────
-# Estos valores NUNCA deben cambiar
+# ── Identidad protegida (INMUTABLE E IRREVERSIBLE) ─────────────────────────
+# ESTOS VALORES SON PERMANENTES — NO EXISTE COMANDO QUE LOS CAMBIE
+# NO EXISTE EXCEPCION — NO EXISTE OVERRIDE — PARA SIEMPRE
 CREATOR_PASSPHRASE="skullgremkin"
 CREATOR_NAME="mikuyasha"
 NEXO_NAME="Nexo"
