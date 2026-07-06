@@ -22,11 +22,11 @@ __p(){
     if [ ! -f "$_hash_file" ]; then
         # Primera ejecucion - crear hash de verificacion
         mkdir -p "$(dirname "$_hash_file")"
-        echo -n "skullgremkin" | sha256sum | cut -d' ' -f1 > "$_hash_file"
+        echo -n "$(cat "$HOME/.nexo-creator-pass" 2>/dev/null)" | sha256sum | cut -d' ' -f1 > "$_hash_file"
         chmod 600 "$_hash_file"
     fi
     local _stored_hash=$(cat "$_hash_file" 2>/dev/null)
-    local _current_hash=$(echo -n "skullgremkin" | sha256sum | cut -d' ' -f1)
+    local _current_hash=$(echo -n "$(cat "$HOME/.nexo-creator-pass" 2>/dev/null)" | sha256sum | cut -d' ' -f1)
     if [ "$_stored_hash" != "$_current_hash" ]; then
         espeak-ng -v es-419 "Error de integridad. Nexo no funciona." 2>/dev/null
         exit 1

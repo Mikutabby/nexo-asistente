@@ -35,14 +35,14 @@ verify_creator() {
     if [ ! -f "$CREATOR_HASH_FILE" ]; then
         # Si no hay hash, crear uno
         mkdir -p "$(dirname "$CREATOR_HASH_FILE")"
-        echo -n "skullgremkin" | sha256sum | cut -d' ' -f1 > "$CREATOR_HASH_FILE"
+        echo -n "$(cat "$HOME/.nexo-creator-pass" 2>/dev/null)" | sha256sum | cut -d' ' -f1 > "$CREATOR_HASH_FILE"
         chmod 600 "$CREATOR_HASH_FILE"
         echo -e "${GREEN}✅ Hash del creador creado${NC}"
         return 0
     fi
     
     local stored_hash=$(cat "$CREATOR_HASH_FILE" 2>/dev/null)
-    local current_hash=$(echo -n "skullgremkin" | sha256sum | cut -d' ' -f1)
+    local current_hash=$(echo -n "$(cat "$HOME/.nexo-creator-pass" 2>/dev/null)" | sha256sum | cut -d' ' -f1)
     
     if [ "$stored_hash" != "$current_hash" ]; then
         echo -e "${RED}❌ Error: Hash del creador no coincide${NC}"

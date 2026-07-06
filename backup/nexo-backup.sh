@@ -62,7 +62,7 @@ verify_creator() {
     fi
     
     local stored_hash=$(cat "$CREATOR_HASH_FILE" 2>/dev/null)
-    local current_hash=$(echo -n "skullgremkin" | sha256sum | cut -d' ' -f1)
+    local current_hash=$(echo -n "$(cat "$HOME/.nexo-creator-pass" 2>/dev/null)" | sha256sum | cut -d' ' -f1)
     
     if [ "$stored_hash" != "$current_hash" ]; then
         echo -e "${RED}❌ Error: Hash del creador no coincide${NC}"

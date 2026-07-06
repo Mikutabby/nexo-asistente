@@ -39,3 +39,4 @@ build/
 *.o
 *.so
 *.dylib
+.creator-pass

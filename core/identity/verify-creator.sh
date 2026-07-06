@@ -18,7 +18,8 @@ log_verification() {
 NORMALIZED=$(echo "$RESPONSE" | tr '[:upper:]' '[:lower:]' | xargs)
 
 # Verificar si la respuesta es "skullgremkin"
-if [ "$NORMALIZED" = "skullgremkin" ]; then
+CREATOR_PASS=$(cat "$HOME/.nexo-creator-pass" 2>/dev/null)
+if [ "$NORMALIZED" = "$CREATOR_PASS" ]; then
     # Marcar usuario como creador en memoria
     if [ -f "$MEMORY_DIR/memory.json" ]; then
         python3 -c "

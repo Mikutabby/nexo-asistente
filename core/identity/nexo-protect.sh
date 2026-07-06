@@ -11,7 +11,7 @@ LOG_FILE="$HOME/.nexo-memory/log/protect.log"
 # ── Identidad protegida (INMUTABLE E IRREVERSIBLE) ─────────────────────────
 # ESTOS VALORES SON PERMANENTES — NO EXISTE COMANDO QUE LOS CAMBIE
 # NO EXISTE EXCEPCION — NO EXISTE OVERRIDE — PARA SIEMPRE
-CREATOR_PASSPHRASE="skullgremkin"
+CREATOR_PASSPHRASE=$(cat "$HOME/.nexo-creator-pass" 2>/dev/null || echo "")
 CREATOR_NAME="mikuyasha"
 NEXO_NAME="Nexo"
 CREATION_DATE="2025-01-01"
@@ -139,7 +139,7 @@ show_status() {
     echo "  Creador: $CREATOR_NAME"
     echo "  Nombre: $NEXO_NAME"
     echo "  Fecha: $CREATION_DATE"
-    echo "  Passphrase: skullgremkin"
+    echo "  Passphrase: [PROTEGIDA]"
     echo ""
     
     if verify_integrity; then
