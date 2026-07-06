@@ -17,7 +17,7 @@ elif [ -f /sys/class/thermal/thermal_zone0/temp ]; then
 fi
 
 if [ -z "$TEMP" ]; then
-    TEMP=$(sensors 2>/dev/null | grep "Package id 0:" | grep -oP '+\?\d+\.\d+°C' | head -1 | tr -d '+°C' | awk -F. '{print $1}')
+    TEMP=$(sensors 2>/dev/null | grep "Package id 0:" | grep -oP '[+-]?\d+\.\d+°C' | head -1 | tr -d '+°C' | awk -F. '{print $1}')
 fi
 
 [ -z "$TEMP" ] && exit 1

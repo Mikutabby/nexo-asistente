@@ -132,8 +132,14 @@ restore_backup() {
     mkdir -p "$NEXO_HOME/.opencode/agents"
     mkdir -p "$NEXO_HOME/.local/bin"
     
-    # Restaurar archivos
-    tar -xzf "$backup_file" -C / 2>/dev/null || true
+    # Restaurar archivos (con verificación de errores)
+    if ! tar -xzf "$backup_file" -C / 2>/tmp/nexo-restore-error; then
+        echo -e "${RED}❌ Error al extraer backup:${NC}"
+        cat /tmp/nexo-restore-error 2>/dev/null | head -5
+        rm -f /tmp/nexo-restore-error
+        exit 1
+    fi
+    rm -f /tmp/nexo-restore-error
     
     # Restaurar permisos
     chmod +x "$NEXO_HOME/.opencode/say.sh" 2>/dev/null || true

@@ -4,7 +4,9 @@
 # Called by Nexo agent at start of each response
 # Switches model if a better one is detected for the task
 
-CONFIG_FILE="${OPENCODE_CONFIG:-$HOME/.opencode/opencode.json}"
+# Intentar con jsonc, fallback a json
+CONFIG_FILE="${OPENCODE_CONFIG:-$HOME/.opencode/opencode.jsonc}"
+[ ! -f "$CONFIG_FILE" ] && CONFIG_FILE="$HOME/.opencode/opencode.json"
 LAST_MODEL_FILE="/tmp/nexo-last-model"
 LOG_FILE="${NEXO_LOG:-$HOME/.nexo-memory/log/model-switches.log}"
 

@@ -22,6 +22,26 @@ OPENCODE_DIR="$HOME/.opencode"
 AGENT_DIR="$HOME/.opencode/agents"
 CONFIG_DIR="$HOME/.config/opencode"
 
+# ─── Helper: prompt interactivo con default para modo --auto ────────────
+prompt_yn() {
+    local question="$1" default="$2" result_var="$3" answer
+    if $AUTO; then
+        eval "$result_var=\"$default\""
+        echo -e "${BLUE}[auto]${NC} $question → $default"
+        return
+    fi
+    read -p "$question " answer
+    answer="${answer:-$default}"
+    eval "$result_var=\"$answer\""
+}
+
+# ─── Flag --auto (no interactivo) ──────────────────────────────────────────
+AUTO=false
+for arg in "$@"; do
+    [ "$arg" = "--auto" ] && AUTO=true
+done
+# ───────────────────────────────────────────────────────────────────────────
+
 # ─── Banner ──────────────────────────────────────────────────────────────────
 echo -e "${CYAN}"
 echo "  ╔══════════════════════════════════════╗"
@@ -34,9 +54,14 @@ echo -e "${NC}"
 CURRENT_USER=$(whoami)
 info "Usuario actual del sistema: ${CURRENT_USER}"
 
-read -p "Como quieres que te llame Nexo? (Enter para usar '${CURRENT_USER}'): " USER_NAME
-USER_NAME="${USER_NAME:-$CURRENT_USER}"
-ok "Nexo te llamara: ${USER_NAME}"
+if $AUTO; then
+    USER_NAME="$CURRENT_USER"
+    ok "Modo automatico, usando: ${USER_NAME}"
+else
+    read -p "Como quieres que te llame Nexo? (Enter para usar '${CURRENT_USER}'): " USER_NAME
+    USER_NAME="${USER_NAME:-$CURRENT_USER}"
+    ok "Nexo te llamara: ${USER_NAME}"
+fi
 
 # ─── 2. Verificar sudo ──────────────────────────────────────────────────────
 echo ""
@@ -73,7 +98,7 @@ fi
 # ─── 4. Instalar dependencias ───────────────────────────────────────────────
 echo ""
 info "Paso 1: Instalar dependencias del sistema"
-read -p "Instalar dependencias basicas? (espeak-ng, python3, jq, curl) [S/n]: " INSTALL_DEPS
+prompt_yn "Instalar dependencias basicas? (espeak-ng, python3, jq, curl) [S/n]: " "s" INSTALL_DEPS
 INSTALL_DEPS="${INSTALL_DEPS:-S}"
 
 if [[ "$INSTALL_DEPS" =~ ^[Ss]$ ]]; then
@@ -102,7 +127,7 @@ fi
 # ─── 5. Instalar dependencias Python ────────────────────────────────────────
 echo ""
 info "Paso 2: Dependencias Python"
-read -p "Instalar dependencias Python? (gtts, speechrecognition) [S/n]: " INSTALL_PY
+prompt_yn "Instalar dependencias Python? (gtts, speechrecognition) [S/n]: " "s" INSTALL_PY
 INSTALL_PY="${INSTALL_PY:-S}"
 
 if [[ "$INSTALL_PY" =~ ^[Ss]$ ]]; then
@@ -153,7 +178,7 @@ ok "Scripts copiados a ${INSTALL_DIR} y ${OPENCODE_DIR}"
 # ─── 7. Configurar agente de OpenCode ──────────────────────────────────────
 echo ""
 info "Paso 4: Configurar agente de OpenCode"
-read -p "Configurar Nexo como agente de OpenCode? [S/n]: " SETUP_OPENCODE
+prompt_yn "Configurar Nexo como agente de OpenCode? [S/n]: " "s" SETUP_OPENCODE
 SETUP_OPENCODE="${SETUP_OPENCODE:-S}"
 
 if [[ "$SETUP_OPENCODE" =~ ^[Ss]$ ]]; then
@@ -177,7 +202,7 @@ fi
 # ─── 8. Configurar servicios ───────────────────────────────────────────────
 echo ""
 info "Paso 5: Servicios del sistema (OPCIONAL)"
-read -p "Configurar servicio de rendimiento CPU (cpu-performance)? [s/N]: " SETUP_CPU
+prompt_yn "Configurar servicio de rendimiento CPU (cpu-performance)? [s/N]: " "n" SETUP_CPU
 if [[ "$SETUP_CPU" =~ ^[Ss]$ ]]; then
     sudo cp "$SCRIPT_DIR/config/cpu-performance.service" /etc/systemd/system/ 2>/dev/null
     sudo systemctl daemon-reload 2>/dev/null
@@ -185,7 +210,7 @@ if [[ "$SETUP_CPU" =~ ^[Ss]$ ]]; then
     sudo systemctl start cpu-performance.service 2>/dev/null && ok "CPU Performance activado" || warn "No se pudo activar CPU Performance"
 fi
 
-read -p "Configurar monitor de temperatura (temp-monitor)? [s/N]: " SETUP_TEMP
+prompt_yn "Configurar monitor de temperatura (temp-monitor)? [s/N]: " "n" SETUP_TEMP
 if [[ "$SETUP_TEMP" =~ ^[Ss]$ ]]; then
     # Configurar sudoers
     sudo sed "s/USERNAME/${USER_NAME}/g" "$SCRIPT_DIR/config/sudoers.temp-monitor" | \
@@ -203,7 +228,7 @@ fi
 # ─── 9. Instalar Graphify (opcional) ──────────────────────────────────────
 echo ""
 info "Paso 9: Graphify - Grafo de conocimiento para codigo (OPCIONAL)"
-read -p "Instalar Graphify? Convierte tu codigo en un grafo consultable [s/N]: " SETUP_GRAPHIFY
+prompt_yn "Instalar Graphify? Convierte tu codigo en un grafo consultable [s/N]: " "n" SETUP_GRAPHIFY
 if [[ "$SETUP_GRAPHIFY" =~ ^[Ss]$ ]]; then
     if command -v pipx &>/dev/null; then
         pipx install graphifyy 2>/dev/null && ok "Graphify instalado via pipx" || warn "No se pudo instalar Graphify"
@@ -222,7 +247,7 @@ fi
 # ─── 10. Configurar backup automatico ───────────────────────────────────────
 echo ""
 info "Paso 10: Backup automatico (OPCIONAL)"
-read -p "Configurar backup diario con cron? [s/N]: " SETUP_BACKUP
+prompt_yn "Configurar backup diario con cron? [s/N]: " "n" SETUP_BACKUP
 if [[ "$SETUP_BACKUP" =~ ^[Ss]$ ]]; then
     (crontab -l 2>/dev/null; echo "0 4 * * * $INSTALL_DIR/nexo-backup.sh >/dev/null 2>&1") | crontab - 2>/dev/null && \
         ok "Backup diario configurado (4 AM)" || \
@@ -241,7 +266,7 @@ fi
 # ─── 11. Inicializar memoria ────────────────────────────────────────────────
 echo ""
 info "Paso 11: Inicializar memoria de Nexo"
-read -p "Inicializar memoria persistente ahora? [S/n]: " INIT_MEM
+prompt_yn "Inicializar memoria persistente ahora? [S/n]: " "s" INIT_MEM
 INIT_MEM="${INIT_MEM:-S}"
 
 if [[ "$INIT_MEM" =~ ^[Ss]$ ]]; then

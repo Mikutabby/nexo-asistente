@@ -3,7 +3,8 @@
 # Usage: nexo-model-switch "user message" [--apply]
 #   --apply: actually changes opencode.json (default: just prints)
 
-CONFIG_FILE="${OPENCODE_CONFIG:-$HOME/.opencode/opencode.json}"
+CONFIG_FILE="${OPENCODE_CONFIG:-$HOME/.opencode/opencode.jsonc}"
+[ ! -f "$CONFIG_FILE" ] && CONFIG_FILE="$HOME/.opencode/opencode.json"
 LOG_FILE="${NEXO_LOG:-$HOME/.nexo-memory/log/model-switches.log}"
 
 # Colors
