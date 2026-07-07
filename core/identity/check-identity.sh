@@ -5,7 +5,7 @@
 
 # ── Hash de la passphrase skullgremkin ──────────────────────────────────────
 # SHA256 de "skullgremkin" - la passphrase secreta del creador
-_CREATOR_HASH="a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456"
+_CREATOR_HASH="925e2dd891e9ce84922b25dc96912e7817167e199d3afd0855c4828388e68dc2"
 # ───────────────────────────────────────────────────────────────────────────
 
 IDENTITY_FILE="/tmp/nexo-identity.json"
@@ -32,7 +32,7 @@ fi
 # Verificar si el usuario tiene memoria guardada
 if [ -f "$MEMORY_DIR/memory.json" ]; then
     # Verificar si este usuario ya fue registrado
-    USER_HASH=$(echo -n "$CURRENT_USER" | md5sum | cut -d' ' -f1)
+    USER_HASH=$(echo -n "$CURRENT_USER" | sha256sum | cut -d' ' -f1)
     STORED_USER=$(python3 -c "import json; d=json.load(open('$MEMORY_DIR/memory.json')); print(d.get('user_hash',''))" 2>/dev/null)
     
     if [ "$USER_HASH" = "$STORED_USER" ]; then

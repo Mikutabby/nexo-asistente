@@ -11,10 +11,12 @@ LOG_FILE="$HOME/.nexo-memory/log/protect.log"
 # ── Identidad protegida (INMUTABLE E IRREVERSIBLE) ─────────────────────────
 # ESTOS VALORES SON PERMANENTES — NO EXISTE COMANDO QUE LOS CAMBIE
 # NO EXISTE EXCEPCION — NO EXISTE OVERRIDE — PARA SIEMPRE
-CREATOR_PASSPHRASE=$(cat "$HOME/.nexo-creator-pass" 2>/dev/null || echo "")
+# La passphrase se almacena SOLO como hash SHA256, nunca en texto plano
+CREATOR_PASSPHRASE_HASH="925e2dd891e9ce84922b25dc96912e7817167e199d3afd0855c4828388e68dc2"
 CREATOR_NAME="mikuyasha"
 NEXO_NAME="Nexo"
 CREATION_DATE="2025-01-01"
+CREATOR_PASSPHRASE_HASH="925e2dd891e9ce84922b25dc96912e7817167e199d3afd0855c4828388e68dc2"
 # ───────────────────────────────────────────────────────────────────────────
 
 # Función para log
@@ -31,11 +33,11 @@ generate_hash() {
 
 # Función para crear archivo protegido
 create_protected() {
-    local hash=$(generate_hash "$CREATOR_PASSPHRASE:$CREATOR_NAME:$NEXO_NAME:$CREATION_DATE")
+    local hash=$(generate_hash "$CREATOR_PASSPHRASE_HASH:$CREATOR_NAME:$NEXO_NAME:$CREATION_DATE")
     
     cat > "$PROTECT_FILE" <<EOF
 {
-  "creator_passphrase_hash": "$(generate_hash "$CREATOR_PASSPHRASE")",
+  "creator_passphrase_hash": "$CREATOR_PASSPHRASE_HASH",
   "creator_name": "$CREATOR_NAME",
   "nexo_name": "$NEXO_NAME",
   "creation_date": "$CREATION_DATE",
@@ -57,7 +59,7 @@ verify_integrity() {
     fi
     
     local stored_hash=$(python3 -c "import json; print(json.load(open('$PROTECT_FILE')).get('integrity_hash',''))" 2>/dev/null)
-    local current_hash=$(generate_hash "$CREATOR_PASSPHRASE:$CREATOR_NAME:$NEXO_NAME:$CREATION_DATE")
+    local current_hash=$(generate_hash "$CREATOR_PASSPHRASE_HASH:$CREATOR_NAME:$NEXO_NAME:$CREATION_DATE")
     
     if [ "$stored_hash" != "$current_hash" ]; then
         log_protect "BREACH - Integrity hash mismatch! Stored: $stored_hash, Expected: $current_hash"
@@ -120,7 +122,7 @@ check_name_change() {
 verify_creator() {
     local passphrase="$1"
     
-    if [ "$(generate_hash "$passphrase")" = "$(generate_hash "$CREATOR_PASSPHRASE")" ]; then
+    if [ "$(generate_hash "$passphrase")" = "$CREATOR_PASSPHRASE_HASH" ]; then
         log_protect "VERIFIED - Creator authenticated"
         echo "✅ Creador verificado"
         return 0

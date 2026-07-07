@@ -21,7 +21,7 @@ esac
 echo "🎤 Grabando ${DUR}s..." >&2
 
 # Asegurar PULSE_SERVER para systemd
-export PULSE_SERVER="${PULSE_SERVER:-unix:/run/user/1000/pulse/native}"
+export PULSE_SERVER="${PULSE_SERVER:-unix:${XDG_RUNTIME_DIR}/pulse/native}"
 
 # Método 1: parec + ffmpeg (PulseAudio nativo)
 timeout "$DUR" parec --rate=16000 --channels=1 --format=s16le 2>/dev/null | \

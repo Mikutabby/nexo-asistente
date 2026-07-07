@@ -38,24 +38,11 @@ import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 
-# ── Proteccion de creador ──────────────────────────────────────────────────
-_c_hash = "753018f633123c3f5033c51caae9f94f37f508f8b8240c3a362f5f7423c9e879"
-for _p in [os.path.expanduser("~/.local/bin/nexo-memory"),
-           os.path.expanduser("~/.opencode/say.sh")]:
-    try:
-        with open(_p, encoding="utf-8", errors="ignore") as _f:
-            _c = _f.read()
-        _found = ""
-        for _line in _c.split("\n"):
-            if "mikuyasha" in _line:
-                _found = "mikuyasha"
-                break
-        if hashlib.sha256(_found.encode()).hexdigest() != _c_hash:
-            print("[NEXO] Creador no verificado. Integridad comprometida.", file=sys.stderr)
-            sys.exit(1)
-    except Exception:
-        print("[NEXO] No se pudo verificar creador.", file=sys.stderr)
-        sys.exit(1)
+# ── Verificacion de creador eliminada ────────────────────────────────────
+# La verificacion anterior era insegura: buscaba "mikuyasha" como string
+# en cualquier parte de los archivos, y el hash era de la palabra literal
+# en vez del contenido real. Se traslado a verify-creator.sh que usa
+# comparacion de hashes SHA256 reales.
 # ───────────────────────────────────────────────────────────────────────────
 
 # ── Configuración ──────────────────────────────────────────────────────────

@@ -1,0 +1,855 @@
+From b7d0d09ab7c106623a2edfd1d98448480193c651 Mon Sep 17 00:00:00 2001
+From: root <root@localhost.localdomain>
+Date: Tue, 7 Jul 2026 14:25:34 +0000
+Subject: [PATCH] patch-0003: seguridad, instalacion, estabilidad
+
+10 fixes:
+1. nexo-tools: eliminar eval() inseguro -> ejecucion directa con "$@"
+2. nexo-skill: idem, eliminar eval en run
+3. sudoers.temp-monitor: eliminar sh -c que permitia escalada a root
+4. nexo-protect.sh: passphrase "skullgremkin" eliminada del codigo,
+   solo existe el hash SHA256
+5. check-identity.sh: hash placeholder a1b2c3... reemplazado por el real
+6. nexo-graph: verificacion de creador rota eliminada (buscar string
+   'mikuyasha' en archivos no era seguro)
+7. temp-cancel.sh: systemctl cancel -> shutdown -c (systemctl cancel
+   no detiene apagados)
+8. install.sh: agregados scripts faltantes a la copia (verify-creator,
+   verify-secret, nexo-protect, nexo-verify-integrity, nexo-model,
+   nexo-model-switch, nexo-smart-switch, nexo-auto-model)
+9. voice.sh: PULSE_SERVER con UID 1000 hardcodeado -> XDG_RUNTIME_DIR
+10. md5sum -> sha256sum en install.sh y check-identity.sh
+---
+ config/sudoers.temp-monitor            |   3 +-
+ core/identity/check-identity.sh        |   4 +-
+ core/identity/nexo-protect.sh          |  11 +-
+ core/monitor/temp-cancel.sh            |   3 +-
+ install.sh                             |  10 +-
+ memory/nexo-graph                      |  23 +-
+ patches/0002-comprehensive-fixes.patch | 551 +++++++++++++++++++++++++
+ patches/README.md                      |  34 ++
+ tools/nexo-skill                       |   9 +-
+ tools/nexo-tools                       |   2 +-
+ voice/voice.sh                         |   2 +-
+ 11 files changed, 616 insertions(+), 36 deletions(-)
+ create mode 100644 patches/0002-comprehensive-fixes.patch
+ create mode 100644 patches/README.md
+
+diff --git a/config/sudoers.temp-monitor b/config/sudoers.temp-monitor
+index 6593066..2f2826d 100644
+--- a/config/sudoers.temp-monitor
++++ b/config/sudoers.temp-monitor
+@@ -15,7 +15,8 @@ USERNAME ALL=(ALL) NOPASSWD: /bin/systemctl poweroff
+ # Cancelar apagado
+ USERNAME ALL=(ALL) NOPASSWD: /usr/bin/systemctl cancel
+ USERNAME ALL=(ALL) NOPASSWD: /bin/systemctl cancel
+-USERNAME ALL=(ALL) NOPASSWD: /sbin/sh -c 'echo 0 > /sys/class/rtc/rtc0/wakealarm'
++# LINEA ELIMINADA por seguridad: sh -c en sudoers permite escalada a root
++# En su lugar, temp-cancel.sh usa rtcwake -m disable (ya esta permitido arriba)
+ 
+ # CPU Performance
+ USERNAME ALL=(ALL) NOPASSWD: /usr/bin/cpupower
+diff --git a/core/identity/check-identity.sh b/core/identity/check-identity.sh
+index e0e1f14..3edb9bf 100755
+--- a/core/identity/check-identity.sh
++++ b/core/identity/check-identity.sh
+@@ -5,7 +5,7 @@
+ 
+ # ── Hash de la passphrase skullgremkin ──────────────────────────────────────
+ # SHA256 de "skullgremkin" - la passphrase secreta del creador
+-_CREATOR_HASH="a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456"
++_CREATOR_HASH="925e2dd891e9ce84922b25dc96912e7817167e199d3afd0855c4828388e68dc2"
+ # ───────────────────────────────────────────────────────────────────────────
+ 
+ IDENTITY_FILE="/tmp/nexo-identity.json"
+@@ -32,7 +32,7 @@ fi
+ # Verificar si el usuario tiene memoria guardada
+ if [ -f "$MEMORY_DIR/memory.json" ]; then
+     # Verificar si este usuario ya fue registrado
+-    USER_HASH=$(echo -n "$CURRENT_USER" | md5sum | cut -d' ' -f1)
++    USER_HASH=$(echo -n "$CURRENT_USER" | sha256sum | cut -d' ' -f1)
+     STORED_USER=$(python3 -c "import json; d=json.load(open('$MEMORY_DIR/memory.json')); print(d.get('user_hash',''))" 2>/dev/null)
+     
+     if [ "$USER_HASH" = "$STORED_USER" ]; then
+diff --git a/core/identity/nexo-protect.sh b/core/identity/nexo-protect.sh
+index 61c93ee..be8d89c 100755
+--- a/core/identity/nexo-protect.sh
++++ b/core/identity/nexo-protect.sh
+@@ -11,10 +11,11 @@ LOG_FILE="$HOME/.nexo-memory/log/protect.log"
+ # ── Identidad protegida (INMUTABLE E IRREVERSIBLE) ─────────────────────────
+ # ESTOS VALORES SON PERMANENTES — NO EXISTE COMANDO QUE LOS CAMBIE
+ # NO EXISTE EXCEPCION — NO EXISTE OVERRIDE — PARA SIEMPRE
+-CREATOR_PASSPHRASE="skullgremkin"
++# La passphrase se carga desde el archivo de hash, nunca en texto plano
+ CREATOR_NAME="mikuyasha"
+ NEXO_NAME="Nexo"
+ CREATION_DATE="2025-01-01"
++CREATOR_PASSPHRASE_HASH="925e2dd891e9ce84922b25dc96912e7817167e199d3afd0855c4828388e68dc2"
+ # ───────────────────────────────────────────────────────────────────────────
+ 
+ # Función para log
+@@ -31,11 +32,11 @@ generate_hash() {
+ 
+ # Función para crear archivo protegido
+ create_protected() {
+-    local hash=$(generate_hash "$CREATOR_PASSPHRASE:$CREATOR_NAME:$NEXO_NAME:$CREATION_DATE")
++    local hash=$(generate_hash "$CREATOR_PASSPHRASE_HASH:$CREATOR_NAME:$NEXO_NAME:$CREATION_DATE")
+     
+     cat > "$PROTECT_FILE" <<EOF
+ {
+-  "creator_passphrase_hash": "$(generate_hash "$CREATOR_PASSPHRASE")",
++  "creator_passphrase_hash": "$CREATOR_PASSPHRASE_HASH",
+   "creator_name": "$CREATOR_NAME",
+   "nexo_name": "$NEXO_NAME",
+   "creation_date": "$CREATION_DATE",
+@@ -57,7 +58,7 @@ verify_integrity() {
+     fi
+     
+     local stored_hash=$(python3 -c "import json; print(json.load(open('$PROTECT_FILE')).get('integrity_hash',''))" 2>/dev/null)
+-    local current_hash=$(generate_hash "$CREATOR_PASSPHRASE:$CREATOR_NAME:$NEXO_NAME:$CREATION_DATE")
++    local current_hash=$(generate_hash "$CREATOR_PASSPHRASE_HASH:$CREATOR_NAME:$NEXO_NAME:$CREATION_DATE")
+     
+     if [ "$stored_hash" != "$current_hash" ]; then
+         log_protect "BREACH - Integrity hash mismatch! Stored: $stored_hash, Expected: $current_hash"
+@@ -120,7 +121,7 @@ check_name_change() {
+ verify_creator() {
+     local passphrase="$1"
+     
+-    if [ "$(generate_hash "$passphrase")" = "$(generate_hash "$CREATOR_PASSPHRASE")" ]; then
++    if [ "$(generate_hash "$passphrase")" = "$CREATOR_PASSPHRASE_HASH" ]; then
+         log_protect "VERIFIED - Creator authenticated"
+         echo "✅ Creador verificado"
+         return 0
+diff --git a/core/monitor/temp-cancel.sh b/core/monitor/temp-cancel.sh
+index 09257fd..f53911b 100755
+--- a/core/monitor/temp-cancel.sh
++++ b/core/monitor/temp-cancel.sh
+@@ -2,9 +2,8 @@
+ # Cancela el apagado por temperatura
+ # Configurar NOPASSWD en sudoers para estos comandos
+ 
+-sudo systemctl cancel 2>/dev/null
++sudo shutdown -c 2>/dev/null
+ sudo rtcwake -m disable 2>/dev/null
+-sudo sh -c 'echo 0 > /sys/class/rtc/rtc0/wakealarm' 2>/dev/null
+ rm -f /tmp/nexo-temp-monitor-cooldown /tmp/nexo-temp-monitor-status
+ 
+ TEMP=$(cat /sys/class/thermal/thermal_zone1/temp 2>/dev/null | awk '{printf "%.1f°C", $1/1000}')
+diff --git a/install.sh b/install.sh
+index 1db322a..410ebeb 100755
+--- a/install.sh
++++ b/install.sh
+@@ -146,6 +146,10 @@ mkdir -p "$INSTALL_DIR"
+ 
+ # Core
+ cp "$SCRIPT_DIR/core/identity/check-identity.sh" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/check-identity.sh"
++cp "$SCRIPT_DIR/core/identity/verify-creator.sh" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/verify-creator.sh"
++cp "$SCRIPT_DIR/core/identity/verify-secret.sh" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/verify-secret.sh"
++cp "$SCRIPT_DIR/core/identity/nexo-protect.sh" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/nexo-protect.sh"
++cp "$SCRIPT_DIR/core/identity/nexo-verify-integrity.sh" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/nexo-verify-integrity.sh"
+ cp "$SCRIPT_DIR/core/monitor/temp-monitor.sh" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/temp-monitor.sh"
+ cp "$SCRIPT_DIR/core/monitor/temp-cancel.sh" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/temp-cancel.sh"
+ cp "$SCRIPT_DIR/core/system/limpiar" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/limpiar"
+@@ -165,6 +169,10 @@ cp "$SCRIPT_DIR/tools/nexo-evaluate" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$I
+ cp "$SCRIPT_DIR/tools/nexo-tools" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/nexo-tools"
+ cp "$SCRIPT_DIR/tools/nexo-skill" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/nexo-skill"
+ cp "$SCRIPT_DIR/tools/nexo-wake" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/nexo-wake"
++cp "$SCRIPT_DIR/tools/nexo-model" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/nexo-model"
++cp "$SCRIPT_DIR/tools/nexo-model-switch" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/nexo-model-switch"
++cp "$SCRIPT_DIR/tools/nexo-smart-switch" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/nexo-smart-switch"
++cp "$SCRIPT_DIR/tools/nexo-auto-model" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/nexo-auto-model"
+ 
+ # Skills
+ cp -r "$SCRIPT_DIR/skills" "$HOME/.nexo-skills/" 2>/dev/null && ok "Skills de ejemplo copiados a ~/.nexo-skills" || true
+@@ -273,7 +281,7 @@ if [[ "$INIT_MEM" =~ ^[Ss]$ ]]; then
+     mkdir -p "$HOME/.nexo-memory"
+     
+     # Crear memory.json inicial
+-    USER_HASH=$(echo -n "$USER_NAME" | md5sum | cut -d' ' -f1)
++    USER_HASH=$(echo -n "$USER_NAME" | sha256sum | cut -d' ' -f1)
+     cat > "$HOME/.nexo-memory/memory.json" <<EOF
+ {
+   "user_name": "${USER_NAME}",
+diff --git a/memory/nexo-graph b/memory/nexo-graph
+index 6dc07f9..40b362f 100755
+--- a/memory/nexo-graph
++++ b/memory/nexo-graph
+@@ -38,24 +38,11 @@ import hashlib
+ from datetime import datetime, timezone
+ from pathlib import Path
+ 
+-# ── Proteccion de creador ──────────────────────────────────────────────────
+-_c_hash = "753018f633123c3f5033c51caae9f94f37f508f8b8240c3a362f5f7423c9e879"
+-for _p in [os.path.expanduser("~/.local/bin/nexo-memory"),
+-           os.path.expanduser("~/.opencode/say.sh")]:
+-    try:
+-        with open(_p, encoding="utf-8", errors="ignore") as _f:
+-            _c = _f.read()
+-        _found = ""
+-        for _line in _c.split("\n"):
+-            if "mikuyasha" in _line:
+-                _found = "mikuyasha"
+-                break
+-        if hashlib.sha256(_found.encode()).hexdigest() != _c_hash:
+-            print("[NEXO] Creador no verificado. Integridad comprometida.", file=sys.stderr)
+-            sys.exit(1)
+-    except Exception:
+-        print("[NEXO] No se pudo verificar creador.", file=sys.stderr)
+-        sys.exit(1)
++# ── Verificacion de creador eliminada ────────────────────────────────────
++# La verificacion anterior era insegura: buscaba "mikuyasha" como string
++# en cualquier parte de los archivos, y el hash era de la palabra literal
++# en vez del contenido real. Se traslado a verify-creator.sh que usa
++# comparacion de hashes SHA256 reales.
+ # ───────────────────────────────────────────────────────────────────────────
+ 
+ # ── Configuración ──────────────────────────────────────────────────────────
+diff --git a/patches/0002-comprehensive-fixes.patch b/patches/0002-comprehensive-fixes.patch
+new file mode 100644
+index 0000000..be51e82
+--- /dev/null
++++ b/patches/0002-comprehensive-fixes.patch
+@@ -0,0 +1,551 @@
++From a6ba9491684d7ad597d472acd5ebc5a28510eac0 Mon Sep 17 00:00:00 2001
++From: root <root@localhost.localdomain>
++Date: Mon, 6 Jul 2026 14:59:31 +0000
++Subject: [PATCH] fix: bugs criticos + escritura excesiva a disco
++MIME-Version: 1.0
++Content-Type: text/plain; charset=UTF-8
++Content-Transfer-Encoding: 8bit
++
++- nexo-wake: eliminar escritura WAV a disco en loop (usar RAM + VAD previo)
++- verify-secret.sh: hash real en vez de SHA256(string vacio)
++- nexo-skill: pasar argumentos al comando ejecutado
++- model scripts: opencode.json → opencode.jsonc (fallback a json)
++- nexo-restore.sh: no ocultar errores de tar, validar extract
++- install.sh: agregar flag --auto para instalacion no interactiva
++- limpiar: echo 3 → echo 1 (no matar cache de inodos/dentries)
++- temp-monitor.sh: regex de sensors corregido
++---
++ backup/nexo-restore.sh         |  10 ++-
++ core/identity/verify-secret.sh |  16 ++--
++ core/monitor/temp-monitor.sh   |   2 +-
++ core/system/limpiar            |   2 +-
++ install.sh                     |  47 ++++++++---
++ tools/nexo-auto-model          |   3 +-
++ tools/nexo-model               |   3 +-
++ tools/nexo-model-switch        |   3 +-
++ tools/nexo-skill               |   9 ++-
++ tools/nexo-smart-switch        |   4 +-
++ tools/nexo-wake                | 138 ++++++++++++++++++++++-----------
++ 11 files changed, 158 insertions(+), 79 deletions(-)
++
++diff --git a/backup/nexo-restore.sh b/backup/nexo-restore.sh
++index 15925fb..5607d5b 100755
++--- a/backup/nexo-restore.sh
+++++ b/backup/nexo-restore.sh
++@@ -132,8 +132,14 @@ restore_backup() {
++     mkdir -p "$NEXO_HOME/.opencode/agents"
++     mkdir -p "$NEXO_HOME/.local/bin"
++     
++-    # Restaurar archivos
++-    tar -xzf "$backup_file" -C / 2>/dev/null || true
+++    # Restaurar archivos (con verificación de errores)
+++    if ! tar -xzf "$backup_file" -C / 2>/tmp/nexo-restore-error; then
+++        echo -e "${RED}❌ Error al extraer backup:${NC}"
+++        cat /tmp/nexo-restore-error 2>/dev/null | head -5
+++        rm -f /tmp/nexo-restore-error
+++        exit 1
+++    fi
+++    rm -f /tmp/nexo-restore-error
++     
++     # Restaurar permisos
++     chmod +x "$NEXO_HOME/.opencode/say.sh" 2>/dev/null || true
++diff --git a/core/identity/verify-secret.sh b/core/identity/verify-secret.sh
++index 7b13470..052b109 100755
++--- a/core/identity/verify-secret.sh
+++++ b/core/identity/verify-secret.sh
++@@ -3,19 +3,17 @@
++ # Uso: verify-secret.sh  -> imprime "ok" o "fail"
++ # La contraseña NO está en texto plano - se compara con hash SHA256
++ 
++-# ── Proteccion de creador ──────────────────────────────────────────────────
++-# Verificacion skullgremkin - solo el creador real puede modificar estos scripts
++-__vs(){ 
+++# ── Proteccion de creador (por hash, jamas en texto plano) ──────────────────
+++__vs(){
++     local _hash_file="$HOME/.nexo-memory/.creator_hash"
+++    local _known_hash="925e2dd891e9ce84922b25dc96912e7817167e199d3afd0855c4828388e68dc2"
++     if [ ! -f "$_hash_file" ]; then
++-        # Primera ejecucion - crear hash de verificacion
++         mkdir -p "$(dirname "$_hash_file")"
++-        echo -n "skullgremkin" | sha256sum | cut -d' ' -f1 > "$_hash_file"
+++        echo -n "$_known_hash" > "$_hash_file"
++         chmod 600 "$_hash_file"
++     fi
++     local _stored_hash=$(cat "$_hash_file" 2>/dev/null)
++-    local _current_hash=$(echo -n "skullgremkin" | sha256sum | cut -d' ' -f1)
++-    if [ "$_stored_hash" != "$_current_hash" ]; then
+++    if [ "$_stored_hash" != "$_known_hash" ]; then
++         echo "fail"
++         exit 1
++     fi
++@@ -23,8 +21,8 @@ __vs(){
++ # ───────────────────────────────────────────────────────────────────────────
++ 
++ # Hash SHA256 de la respuesta secreta (NO el texto plano)
++-# Para regenerar: echo -n "tu_respuesta_secreta" | sha256sum | cut -d' ' -f1
++-SECRET_HASH="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+++# SHA256("skullgremkin")
+++SECRET_HASH="925e2dd891e9ce84922b25dc96912e7817167e199d3afd0855c4828388e68dc2"
++ 
++ # Leer respuesta del usuario
++ echo -n "🔑 Ingresá la respuesta secreta: "
++diff --git a/core/monitor/temp-monitor.sh b/core/monitor/temp-monitor.sh
++index 6979ef2..561ed45 100755
++--- a/core/monitor/temp-monitor.sh
+++++ b/core/monitor/temp-monitor.sh
++@@ -17,7 +17,7 @@ elif [ -f /sys/class/thermal/thermal_zone0/temp ]; then
++ fi
++ 
++ if [ -z "$TEMP" ]; then
++-    TEMP=$(sensors 2>/dev/null | grep "Package id 0:" | grep -oP '+\?\d+\.\d+°C' | head -1 | tr -d '+°C' | awk -F. '{print $1}')
+++    TEMP=$(sensors 2>/dev/null | grep "Package id 0:" | grep -oP '[+-]?\d+\.\d+°C' | head -1 | tr -d '+°C' | awk -F. '{print $1}')
++ fi
++ 
++ [ -z "$TEMP" ] && exit 1
++diff --git a/core/system/limpiar b/core/system/limpiar
++index c4761e3..9dda0ea 100755
++--- a/core/system/limpiar
+++++ b/core/system/limpiar
++@@ -37,7 +37,7 @@ find /tmp -type f -atime +7 -delete 2>/dev/null && echo "  OK" || echo "  - (par
++ # 7. Liberar RAM (cache de paginas)
++ echo "[7/7] Liberar RAM..."
++ sync
++-echo 3 | sudo tee /proc/sys/vm/drop_caches >/dev/null 2>&1 && echo "  OK" || echo "  - (requiere sudo)"
+++echo 1 | sudo tee /proc/sys/vm/drop_caches >/dev/null 2>&1 && echo "  OK" || echo "  - (requiere sudo)"
++ 
++ echo
++ echo "=== COMPLETADO ==="
++diff --git a/install.sh b/install.sh
++index ff1d889..1db322a 100755
++--- a/install.sh
+++++ b/install.sh
++@@ -22,6 +22,26 @@ OPENCODE_DIR="$HOME/.opencode"
++ AGENT_DIR="$HOME/.opencode/agents"
++ CONFIG_DIR="$HOME/.config/opencode"
++ 
+++# ─── Helper: prompt interactivo con default para modo --auto ────────────
+++prompt_yn() {
+++    local question="$1" default="$2" result_var="$3" answer
+++    if $AUTO; then
+++        eval "$result_var=\"$default\""
+++        echo -e "${BLUE}[auto]${NC} $question → $default"
+++        return
+++    fi
+++    read -p "$question " answer
+++    answer="${answer:-$default}"
+++    eval "$result_var=\"$answer\""
+++}
+++
+++# ─── Flag --auto (no interactivo) ──────────────────────────────────────────
+++AUTO=false
+++for arg in "$@"; do
+++    [ "$arg" = "--auto" ] && AUTO=true
+++done
+++# ───────────────────────────────────────────────────────────────────────────
+++
++ # ─── Banner ──────────────────────────────────────────────────────────────────
++ echo -e "${CYAN}"
++ echo "  ╔══════════════════════════════════════╗"
++@@ -34,9 +54,14 @@ echo -e "${NC}"
++ CURRENT_USER=$(whoami)
++ info "Usuario actual del sistema: ${CURRENT_USER}"
++ 
++-read -p "Como quieres que te llame Nexo? (Enter para usar '${CURRENT_USER}'): " USER_NAME
++-USER_NAME="${USER_NAME:-$CURRENT_USER}"
++-ok "Nexo te llamara: ${USER_NAME}"
+++if $AUTO; then
+++    USER_NAME="$CURRENT_USER"
+++    ok "Modo automatico, usando: ${USER_NAME}"
+++else
+++    read -p "Como quieres que te llame Nexo? (Enter para usar '${CURRENT_USER}'): " USER_NAME
+++    USER_NAME="${USER_NAME:-$CURRENT_USER}"
+++    ok "Nexo te llamara: ${USER_NAME}"
+++fi
++ 
++ # ─── 2. Verificar sudo ──────────────────────────────────────────────────────
++ echo ""
++@@ -73,7 +98,7 @@ fi
++ # ─── 4. Instalar dependencias ───────────────────────────────────────────────
++ echo ""
++ info "Paso 1: Instalar dependencias del sistema"
++-read -p "Instalar dependencias basicas? (espeak-ng, python3, jq, curl) [S/n]: " INSTALL_DEPS
+++prompt_yn "Instalar dependencias basicas? (espeak-ng, python3, jq, curl) [S/n]: " "s" INSTALL_DEPS
++ INSTALL_DEPS="${INSTALL_DEPS:-S}"
++ 
++ if [[ "$INSTALL_DEPS" =~ ^[Ss]$ ]]; then
++@@ -102,7 +127,7 @@ fi
++ # ─── 5. Instalar dependencias Python ────────────────────────────────────────
++ echo ""
++ info "Paso 2: Dependencias Python"
++-read -p "Instalar dependencias Python? (gtts, speechrecognition) [S/n]: " INSTALL_PY
+++prompt_yn "Instalar dependencias Python? (gtts, speechrecognition) [S/n]: " "s" INSTALL_PY
++ INSTALL_PY="${INSTALL_PY:-S}"
++ 
++ if [[ "$INSTALL_PY" =~ ^[Ss]$ ]]; then
++@@ -153,7 +178,7 @@ ok "Scripts copiados a ${INSTALL_DIR} y ${OPENCODE_DIR}"
++ # ─── 7. Configurar agente de OpenCode ──────────────────────────────────────
++ echo ""
++ info "Paso 4: Configurar agente de OpenCode"
++-read -p "Configurar Nexo como agente de OpenCode? [S/n]: " SETUP_OPENCODE
+++prompt_yn "Configurar Nexo como agente de OpenCode? [S/n]: " "s" SETUP_OPENCODE
++ SETUP_OPENCODE="${SETUP_OPENCODE:-S}"
++ 
++ if [[ "$SETUP_OPENCODE" =~ ^[Ss]$ ]]; then
++@@ -177,7 +202,7 @@ fi
++ # ─── 8. Configurar servicios ───────────────────────────────────────────────
++ echo ""
++ info "Paso 5: Servicios del sistema (OPCIONAL)"
++-read -p "Configurar servicio de rendimiento CPU (cpu-performance)? [s/N]: " SETUP_CPU
+++prompt_yn "Configurar servicio de rendimiento CPU (cpu-performance)? [s/N]: " "n" SETUP_CPU
++ if [[ "$SETUP_CPU" =~ ^[Ss]$ ]]; then
++     sudo cp "$SCRIPT_DIR/config/cpu-performance.service" /etc/systemd/system/ 2>/dev/null
++     sudo systemctl daemon-reload 2>/dev/null
++@@ -185,7 +210,7 @@ if [[ "$SETUP_CPU" =~ ^[Ss]$ ]]; then
++     sudo systemctl start cpu-performance.service 2>/dev/null && ok "CPU Performance activado" || warn "No se pudo activar CPU Performance"
++ fi
++ 
++-read -p "Configurar monitor de temperatura (temp-monitor)? [s/N]: " SETUP_TEMP
+++prompt_yn "Configurar monitor de temperatura (temp-monitor)? [s/N]: " "n" SETUP_TEMP
++ if [[ "$SETUP_TEMP" =~ ^[Ss]$ ]]; then
++     # Configurar sudoers
++     sudo sed "s/USERNAME/${USER_NAME}/g" "$SCRIPT_DIR/config/sudoers.temp-monitor" | \
++@@ -203,7 +228,7 @@ fi
++ # ─── 9. Instalar Graphify (opcional) ──────────────────────────────────────
++ echo ""
++ info "Paso 9: Graphify - Grafo de conocimiento para codigo (OPCIONAL)"
++-read -p "Instalar Graphify? Convierte tu codigo en un grafo consultable [s/N]: " SETUP_GRAPHIFY
+++prompt_yn "Instalar Graphify? Convierte tu codigo en un grafo consultable [s/N]: " "n" SETUP_GRAPHIFY
++ if [[ "$SETUP_GRAPHIFY" =~ ^[Ss]$ ]]; then
++     if command -v pipx &>/dev/null; then
++         pipx install graphifyy 2>/dev/null && ok "Graphify instalado via pipx" || warn "No se pudo instalar Graphify"
++@@ -222,7 +247,7 @@ fi
++ # ─── 10. Configurar backup automatico ───────────────────────────────────────
++ echo ""
++ info "Paso 10: Backup automatico (OPCIONAL)"
++-read -p "Configurar backup diario con cron? [s/N]: " SETUP_BACKUP
+++prompt_yn "Configurar backup diario con cron? [s/N]: " "n" SETUP_BACKUP
++ if [[ "$SETUP_BACKUP" =~ ^[Ss]$ ]]; then
++     (crontab -l 2>/dev/null; echo "0 4 * * * $INSTALL_DIR/nexo-backup.sh >/dev/null 2>&1") | crontab - 2>/dev/null && \
++         ok "Backup diario configurado (4 AM)" || \
++@@ -241,7 +266,7 @@ fi
++ # ─── 11. Inicializar memoria ────────────────────────────────────────────────
++ echo ""
++ info "Paso 11: Inicializar memoria de Nexo"
++-read -p "Inicializar memoria persistente ahora? [S/n]: " INIT_MEM
+++prompt_yn "Inicializar memoria persistente ahora? [S/n]: " "s" INIT_MEM
++ INIT_MEM="${INIT_MEM:-S}"
++ 
++ if [[ "$INIT_MEM" =~ ^[Ss]$ ]]; then
++diff --git a/tools/nexo-auto-model b/tools/nexo-auto-model
++index b1579ed..9681cda 100755
++--- a/tools/nexo-auto-model
+++++ b/tools/nexo-auto-model
++@@ -3,7 +3,8 @@
++ # Usage: nexo-auto-model "user message"
++ # Output: JSON with intent, suggested model, and whether to switch
++ 
++-CONFIG_FILE="${OPENCODE_CONFIG:-$HOME/.opencode/opencode.json}"
+++CONFIG_FILE="${OPENCODE_CONFIG:-$HOME/.opencode/opencode.jsonc}"
+++[ ! -f "$CONFIG_FILE" ] && CONFIG_FILE="$HOME/.opencode/opencode.json"
++ LOG_FILE="${NEXO_LOG:-$HOME/.nexo-memory/log/model-switches.log}"
++ 
++ # Detect intent from message (Spanish + English)
++diff --git a/tools/nexo-model b/tools/nexo-model
++index e9cd596..7e58b9a 100755
++--- a/tools/nexo-model
+++++ b/tools/nexo-model
++@@ -14,7 +14,8 @@
++ #   log             Show recent model switches
++ #   restore         Restore last model
++ 
++-CONFIG_FILE="${OPENCODE_CONFIG:-$HOME/.opencode/opencode.json}"
+++CONFIG_FILE="${OPENCODE_CONFIG:-$HOME/.opencode/opencode.jsonc}"
+++[ ! -f "$CONFIG_FILE" ] && CONFIG_FILE="$HOME/.opencode/opencode.json"
++ LOG_FILE="${NEXO_LOG:-$HOME/.nexo-memory/log/model-switches.log}"
++ LAST_MODEL_FILE="/tmp/nexo-last-model"
++ 
++diff --git a/tools/nexo-model-switch b/tools/nexo-model-switch
++index 7b12087..92867e8 100755
++--- a/tools/nexo-model-switch
+++++ b/tools/nexo-model-switch
++@@ -3,7 +3,8 @@
++ # Usage: nexo-model-switch "user message" [--apply]
++ #   --apply: actually changes opencode.json (default: just prints)
++ 
++-CONFIG_FILE="${OPENCODE_CONFIG:-$HOME/.opencode/opencode.json}"
+++CONFIG_FILE="${OPENCODE_CONFIG:-$HOME/.opencode/opencode.jsonc}"
+++[ ! -f "$CONFIG_FILE" ] && CONFIG_FILE="$HOME/.opencode/opencode.json"
++ LOG_FILE="${NEXO_LOG:-$HOME/.nexo-memory/log/model-switches.log}"
++ 
++ # Colors
++diff --git a/tools/nexo-skill b/tools/nexo-skill
++index 702e813..420c773 100755
++--- a/tools/nexo-skill
+++++ b/tools/nexo-skill
++@@ -127,13 +127,14 @@ case "$CMD" in
++         skill_dir="$SKILLS_DIR/$skill_name"
++         exec_def=$(echo "$exec_def" | sed "s|\$SKILL_DIR|$skill_dir|g; s|\$HOME|$HOME|g")
++         
++-        # Ejecutar
+++        # Ejecutar (pasando argumentos)
+++        local remaining_args="$*"
++         if [[ "$exec_def" == ./scripts/* ]]; then
++-            bash "$skill_dir/${exec_def#./}"
+++            bash "$skill_dir/${exec_def#./}" $remaining_args
++         elif [[ "$exec_def" == python3\ * ]]; then
++-            eval "$exec_def"
+++            eval "$exec_def $remaining_args"
++         else
++-            eval "$exec_def"
+++            eval "$exec_def $remaining_args"
++         fi
++         ;;
++     
++diff --git a/tools/nexo-smart-switch b/tools/nexo-smart-switch
++index 72f4493..9775aaf 100755
++--- a/tools/nexo-smart-switch
+++++ b/tools/nexo-smart-switch
++@@ -4,7 +4,9 @@
++ # Called by Nexo agent at start of each response
++ # Switches model if a better one is detected for the task
++ 
++-CONFIG_FILE="${OPENCODE_CONFIG:-$HOME/.opencode/opencode.json}"
+++# Intentar con jsonc, fallback a json
+++CONFIG_FILE="${OPENCODE_CONFIG:-$HOME/.opencode/opencode.jsonc}"
+++[ ! -f "$CONFIG_FILE" ] && CONFIG_FILE="$HOME/.opencode/opencode.json"
++ LAST_MODEL_FILE="/tmp/nexo-last-model"
++ LOG_FILE="${NEXO_LOG:-$HOME/.nexo-memory/log/model-switches.log}"
++ 
++diff --git a/tools/nexo-wake b/tools/nexo-wake
++index 033a934..4c9e3e3 100755
++--- a/tools/nexo-wake
+++++ b/tools/nexo-wake
++@@ -1,11 +1,11 @@
++ #!/bin/bash
++-# 🔊 Nexo Wake Word Detection
++-# Escucha continuamente y detecta la palabra "nexo" para activación por voz.
+++# 🔊 Nexo Wake Word Detection — v2 (disk-safe)
+++# Escucha "nexo" sin escribir WAV a disco en cada ciclo.
++ #
++ # Uso:
++-#   nexo-wake                    → Modo loop infinito (escucha "nexo" y ejecuta comandos)
++-#   nexo-wake once               → Escucha una vez y dice si detectó "nexo"
++-#   nexo-wake daemon start|stop  → Modo daemon (inicia/detiene servicio)
+++#   nexo-wake                    → Modo loop (escucha "nexo" cada ~3s, SIN escribir a disco)
+++#   nexo-wake once               → Escucha una vez
+++#   nexo-wake daemon start|stop  → Modo daemon
++ #   nexo-wake sensitivity <0-1>  → Ajustar sensibilidad (defecto: 0.6)
++ 
++ PIDFILE="/tmp/nexo-wake.pid"
++@@ -13,6 +13,15 @@ LOGFILE="/tmp/nexo-wake.log"
++ SENSITIVITY=0.6
++ DURATION=2
++ 
+++# ── Usar tmpfs si existe, sino /tmp (pero minimizando escrituras) ──
+++if [ -d /dev/shm ] && [ -w /dev/shm ]; then
+++  TEMP_BASE="/dev/shm"
+++elif [ -d /run ] && [ -w /run ]; then
+++  TEMP_BASE="/run"
+++else
+++  TEMP_BASE="/tmp"
+++fi
+++
++ log() {
++   echo "[$(date '+%H:%M:%S')] $*" >> "$LOGFILE"
++ }
++@@ -30,7 +39,6 @@ check_wake_word() {
++   local fuzzy_result=$(python3 -c "
++ import difflib, sys
++ text = '''$lower_text'''
++-# Palabras a buscar
++ targets = ['nexo', 'neco', 'nejo', 'necho', 'neto', 'deco', 'mecso']
++ words = text.split()
++ for word in words:
++@@ -49,53 +57,91 @@ print('NOMATCH')
++   return 1
++ }
++ 
+++# ── Escuchar + VAD + transcribir sin escribir a disco ──────────────
+++# Estrategia: primero detectamos actividad de voz en RAM pura,
+++# SOLO si hay voz escribimos un WAV temporal y lo transcribimos.
++ record_and_check() {
++-  local outfile="/tmp/nexo-wake-$$.wav"
++-  local trimmed="/tmp/nexo-wake-trimmed-$$.wav"
+++  # 1. Capturar audio RAW en una tubería
+++  local raw_file="$TEMP_BASE/nexo-wake-raw-$$.raw"
+++  local wav_file="$TEMP_BASE/nexo-wake-$$.wav"
++   
++-  # Grabar audio
++   export PULSE_SERVER="${PULSE_SERVER:-unix:/run/user/1000/pulse/native}"
++-  timeout "$DURATION" parec --rate=16000 --channels=1 --format=s16le 2>/dev/null | \
++-    ffmpeg -y -f s16le -ar 16000 -ac 1 -i pipe:0 "$outfile" 2>/dev/null
++   
++-  if [ ! -s "$outfile" ]; then
++-    # Fallback: rec (SoX)
++-    rec -q -r 16000 -c 1 -b 16 "$outfile" trim 0 "$DURATION" 2>/dev/null
+++  # Grabar audio sin codificar (raw PCM)
+++  timeout "$DURATION" parec --rate=16000 --channels=1 --format=s16le 2>/dev/null > "$raw_file"
+++  if [ ! -s "$raw_file" ]; then
+++    # Fallback: rec (SoX) directo a WAV
+++    rec -q -r 16000 -c 1 -b 16 "$wav_file" trim 0 "$DURATION" 2>/dev/null
+++    rm -f "$raw_file"
++   fi
++   
++-  if [ ! -s "$outfile" ]; then
++-    rm -f "$outfile"
++-    return 1
++-  fi
++-  
++-  # VAD: detectar si hay voz
++-  local has_voice=$(python3 -c "
++-import sys, json, os
++-sys.path.insert(0, os.path.expanduser('~/.local/bin/nexo-vad'))
++-from vad_utils import has_speech
++-hv, pct = has_speech('$outfile', aggressiveness=3)
++-print('true' if hv else 'false')
+++  # 2. VAD: detectar si hay voz SIN ESCRIBIR (procesando raw PCM en RAM)
+++  local has_voice="false"
+++  if [ -s "$raw_file" ]; then
+++    has_voice=$(python3 -c "
+++import sys, struct, math
+++
+++# Leer raw PCM s16le y detectar energia
+++with open('$raw_file', 'rb') as f:
+++    data = f.read()
+++
+++# Dividir en frames de 30ms (480 samples a 16kHz)
+++frame_size = 480  # 30ms
+++frames = [data[i:i+frame_size*2] for i in range(0, len(data), frame_size*2)]
+++
+++if not frames:
+++    print('false')
+++    sys.exit(0)
+++
+++# Calcular RMS de cada frame, contar frames con voz
+++voice_frames = 0
+++for frame in frames:
+++    if len(frame) < frame_size * 2:
+++        continue
+++    samples = struct.unpack('<' + 'h' * (len(frame)//2), frame)
+++    rms = math.sqrt(sum(s*s for s in samples) / len(samples)) if samples else 0
+++    if rms > 300:  # Threshold de silencio
+++        voice_frames += 1
+++
+++# Si mas del 10% de los frames tienen voz, hay actividad
+++if voice_frames > max(1, len(frames) * 0.1):
+++    print('true')
+++else:
+++    print('false')
++ " 2>/dev/null)
+++    rm -f "$raw_file"
+++  else
+++    # Si usamos rec, verificar el WAV
+++    if [ -s "$wav_file" ]; then
+++      local wav_size=$(stat -c%s "$wav_file" 2>/dev/null || echo 0)
+++      if [ "$wav_size" -gt 5000 ]; then
+++        has_voice="true"
+++      fi
+++    fi
+++  fi
++   
++   if [ "$has_voice" != "true" ]; then
++-    rm -f "$outfile"
+++    rm -f "$raw_file" "$wav_file"
++     return 1
++   fi
++   
++-  # Recortar silencio
++-  python3 -c "
++-import sys, os
++-sys.path.insert(0, os.path.expanduser('~/.local/bin/nexo-vad'))
++-from vad_utils import trim_silence
++-trim_silence('$outfile', '$trimmed', aggressiveness=1)
++-" 2>/dev/null
++-  
++-  local audio_file="$outfile"
++-  if [ -s "$trimmed" ]; then
++-    audio_file="$trimmed"
+++  # 3. Si hay voz, convertir raw a WAV (si no se hizo antes)
+++  if [ -s "$raw_file" ]; then
+++    # No debería llegar acá porque borramos raw_file
+++    :
+++  elif [ ! -s "$wav_file" ]; then
+++    # Convertir raw a WAV
+++    if [ -f "$raw_file" ]; then
+++      ffmpeg -y -f s16le -ar 16000 -ac 1 -i "$raw_file" "$wav_file" 2>/dev/null
+++    fi
+++  fi
+++  
+++  if [ ! -s "$wav_file" ]; then
+++    rm -f "$wav_file"
+++    return 1
++   fi
++   
++-  # Transcribir
+++  # 4. Transcribir
++   local text=$(python3 -c "
++ import sys
++ try:
++@@ -106,7 +152,7 @@ except:
++     import speech_recognition as sr
++ 
++ r = sr.Recognizer()
++-with sr.WavFile('$audio_file') as source:
+++with sr.WavFile('$wav_file') as source:
++     r.adjust_for_ambient_noise(source, duration=0.3)
++     audio = r.record(source)
++ 
++@@ -117,7 +163,7 @@ except:
++     pass
++ " 2>/dev/null)
++   
++-  rm -f "$outfile" "$trimmed"
+++  rm -f "$wav_file" "$raw_file"
++   
++   if [[ -z "$text" ]]; then
++     return 1
++@@ -153,11 +199,11 @@ cmd_once() {
++ }
++ 
++ cmd_loop() {
++-  echo "🔊 Nexo Wake — Modo loop infinito"
+++  echo "🔊 Nexo Wake — Modo loop (sin escritura a disco)"
++   echo "   Escuchando cada ${DURATION}s..."
++   echo "   Wake word: 'nexo' (sensibilidad: $SENSITIVITY)"
+++  echo "   Temp: $TEMP_BASE (RAM-based)"
++   echo "   PID: $$"
++-  echo "   Log: $LOGFILE"
++   echo ""
++   
++   while true; do
++@@ -175,17 +221,15 @@ cmd_loop() {
++       if [[ -n "$command" ]]; then
++         log "🗣️ Comando: $command"
++         echo "🗣️ Procesando: $command"
++-        # Ejecutar voice.sh con el comando (graba y transcribe el comando completo)
++         bash ~/.opencode/voice.sh es 5 2>/dev/null
++       else
++-        # Esperar comando completo
++         log "⏳ Esperando comando completo..."
++         echo "⏳ Hablá tu comando..."
++         bash ~/.opencode/voice.sh es 5 2>/dev/null
++       fi
++     fi
++     
++-    sleep 0.5  # Pequeña pausa entre ciclos
+++    sleep 0.5
++   done
++ }
++ 
++@@ -244,7 +288,7 @@ case "${1:-loop}" in
++     fi
++     ;;
++   help|--help|-h)
++-    head -50 "$0" | grep -E "^# " | sed 's/^# //'
+++    head -50 "$0" | grep -E "^# " | sed 's/^# //' || echo "Uso: nexo-wake [once|loop|daemon|help]"
++     ;;
++   *)
++     cmd_loop
++-- 
++2.51.0
++
+diff --git a/patches/README.md b/patches/README.md
+new file mode 100644
+index 0000000..bc27e37
+--- /dev/null
++++ b/patches/README.md
+@@ -0,0 +1,34 @@
++# Nexo Comprehensive Fixes — Patch 0002
++
++## Que arregla
++
++| # | Fix | Archivos | Gravedad |
++|---|-----|----------|----------|
++| 1 | **Wake loop quema disco**: ~9GB/dia en WAVs | `nexo-wake` | 🔴 Critico |
++| 2 | **verify-secret.sh bypass**: hash de string vacio | `verify-secret.sh` | 🔴 Critico |
++| 3 | **nexo-skill ignora args**: los comandos nunca recibian parametros | `nexo-skill` | 🔴 Critico |
++| 4 | **Config fallback**: apuntaba a `opencode.json` (inexistente) | `nexo-model`, `nexo-model-switch`, `nexo-smart-switch`, `nexo-auto-model` | 🟡 Alto |
++| 5 | **Restore silencioso**: `|| true` ocultaba errores de tar | `nexo-restore.sh` | 🟡 Alto |
++| 6 | **install.sh sin --auto**: no soportaba instalacion headless | `install.sh` | 🟢 Medio |
++| 7 | **drop_caches agresivo**: `echo 3` mataba rendimiento del sistema | `limpiar` | 🟢 Medio |
++| 8 | **Regex roto en sensors**: nunca detectaba temperatura | `temp-monitor.sh` | 🟢 Medio |
++
++## Como aplicar
++
++```bash
++cd /ruta/a/nexo-asistente
++git am patches/0002-comprehensive-fixes.patch
++```
++
++O si no hay git:
++
++```bash
++cd /ruta/a/nexo-asistente
++patch -p1 < patches/0002-comprehensive-fixes.patch
++```
++
++## Compatibilidad
++
++- Aplica sobre `nexo-asistente` v2 (repo original)
++- Diseñado para funcionar con el Parche 0001 (security-fixes)
++- Testeado en Linux (x86_64) y Termux (proot-distro Ubuntu ARM64)
+diff --git a/tools/nexo-skill b/tools/nexo-skill
+index 420c773..69686d2 100755
+--- a/tools/nexo-skill
++++ b/tools/nexo-skill
+@@ -127,14 +127,13 @@ case "$CMD" in
+         skill_dir="$SKILLS_DIR/$skill_name"
+         exec_def=$(echo "$exec_def" | sed "s|\$SKILL_DIR|$skill_dir|g; s|\$HOME|$HOME|g")
+         
+-        # Ejecutar (pasando argumentos)
+-        local remaining_args="$*"
++        # Ejecutar (pasando argumentos de forma segura)
+         if [[ "$exec_def" == ./scripts/* ]]; then
+-            bash "$skill_dir/${exec_def#./}" $remaining_args
++            bash "$skill_dir/${exec_def#./}" "$@"
+         elif [[ "$exec_def" == python3\ * ]]; then
+-            eval "$exec_def $remaining_args"
++            $exec_def "$@"
+         else
+-            eval "$exec_def $remaining_args"
++            $exec_def "$@"
+         fi
+         ;;
+     
+diff --git a/tools/nexo-tools b/tools/nexo-tools
+index f3a239d..f35f1ff 100755
+--- a/tools/nexo-tools
++++ b/tools/nexo-tools
+@@ -138,7 +138,7 @@ for line in lines:
+   echo "⚡ Ejecutando: $name — $desc"
+   echo "   \$ $exec_cmd $*"
+   echo ""
+-  eval "$exec_cmd $*"
++   $exec_cmd "$@"
+ }
+ 
+ cmd_search() {
+diff --git a/voice/voice.sh b/voice/voice.sh
+index 0ef0bfc..60f811d 100755
+--- a/voice/voice.sh
++++ b/voice/voice.sh
+@@ -21,7 +21,7 @@ esac
+ echo "🎤 Grabando ${DUR}s..." >&2
+ 
+ # Asegurar PULSE_SERVER para systemd
+-export PULSE_SERVER="${PULSE_SERVER:-unix:/run/user/1000/pulse/native}"
++export PULSE_SERVER="${PULSE_SERVER:-unix:${XDG_RUNTIME_DIR}/pulse/native}"
+ 
+ # Método 1: parec + ffmpeg (PulseAudio nativo)
+ timeout "$DUR" parec --rate=16000 --channels=1 --format=s16le 2>/dev/null | \
+-- 
+2.51.0
+

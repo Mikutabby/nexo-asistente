@@ -146,6 +146,10 @@ mkdir -p "$INSTALL_DIR"
 
 # Core
 cp "$SCRIPT_DIR/core/identity/check-identity.sh" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/check-identity.sh"
+cp "$SCRIPT_DIR/core/identity/verify-creator.sh" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/verify-creator.sh"
+cp "$SCRIPT_DIR/core/identity/verify-secret.sh" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/verify-secret.sh"
+cp "$SCRIPT_DIR/core/identity/nexo-protect.sh" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/nexo-protect.sh"
+cp "$SCRIPT_DIR/core/identity/nexo-verify-integrity.sh" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/nexo-verify-integrity.sh"
 cp "$SCRIPT_DIR/core/monitor/temp-monitor.sh" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/temp-monitor.sh"
 cp "$SCRIPT_DIR/core/monitor/temp-cancel.sh" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/temp-cancel.sh"
 cp "$SCRIPT_DIR/core/system/limpiar" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/limpiar"
@@ -165,6 +169,10 @@ cp "$SCRIPT_DIR/tools/nexo-evaluate" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$I
 cp "$SCRIPT_DIR/tools/nexo-tools" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/nexo-tools"
 cp "$SCRIPT_DIR/tools/nexo-skill" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/nexo-skill"
 cp "$SCRIPT_DIR/tools/nexo-wake" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/nexo-wake"
+cp "$SCRIPT_DIR/tools/nexo-model" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/nexo-model"
+cp "$SCRIPT_DIR/tools/nexo-model-switch" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/nexo-model-switch"
+cp "$SCRIPT_DIR/tools/nexo-smart-switch" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/nexo-smart-switch"
+cp "$SCRIPT_DIR/tools/nexo-auto-model" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/nexo-auto-model"
 
 # Skills
 cp -r "$SCRIPT_DIR/skills" "$HOME/.nexo-skills/" 2>/dev/null && ok "Skills de ejemplo copiados a ~/.nexo-skills" || true
@@ -273,7 +281,7 @@ if [[ "$INIT_MEM" =~ ^[Ss]$ ]]; then
     mkdir -p "$HOME/.nexo-memory"
     
     # Crear memory.json inicial
-    USER_HASH=$(echo -n "$USER_NAME" | md5sum | cut -d' ' -f1)
+    USER_HASH=$(echo -n "$USER_NAME" | sha256sum | cut -d' ' -f1)
     cat > "$HOME/.nexo-memory/memory.json" <<EOF
 {
   "user_name": "${USER_NAME}",

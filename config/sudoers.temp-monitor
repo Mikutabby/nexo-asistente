@@ -15,7 +15,8 @@ USERNAME ALL=(ALL) NOPASSWD: /bin/systemctl poweroff
 # Cancelar apagado
 USERNAME ALL=(ALL) NOPASSWD: /usr/bin/systemctl cancel
 USERNAME ALL=(ALL) NOPASSWD: /bin/systemctl cancel
-USERNAME ALL=(ALL) NOPASSWD: /sbin/sh -c 'echo 0 > /sys/class/rtc/rtc0/wakealarm'
+# LINEA ELIMINADA por seguridad: sh -c en sudoers permite escalada a root
+# En su lugar, temp-cancel.sh usa rtcwake -m disable (ya esta permitido arriba)
 
 # CPU Performance
 USERNAME ALL=(ALL) NOPASSWD: /usr/bin/cpupower
