@@ -16,6 +16,29 @@ GRAPH_DB="$MEMORY_DIR/graph.db"
 GRAPH_GPG="$MEMORY_DIR/graph.db.gpg"
 LOG_DIR="$MEMORY_DIR/log"
 LEARN_DIR="$MEMORY_DIR/learned"
+LOCK_FILE="$MEMORY_DIR/.memory.lock"
+
+# ── File locking para escrituras concurrentes ──────────────────────────────
+acquire_lock() {
+  local timeout="${1:-5}"
+  local lock_fd
+  exec {lock_fd}>"$LOCK_FILE" 2>/dev/null || {
+    echo "❌ No se pudo abrir lock file" >&2
+    return 1
+  }
+  if ! flock -w "$timeout" "$lock_fd" 2>/dev/null; then
+    echo "❌ No se pudo adquirir lock (timeout ${timeout}s)" >&2
+    return 1
+  fi
+  echo "$lock_fd"
+}
+
+release_lock() {
+  local lock_fd="$1"
+  flock -u "$lock_fd" 2>/dev/null || true
+  exec {lock_fd}>&- 2>/dev/null || true
+}
+# ───────────────────────────────────────────────────────────────────────────
 
 ensure_dirs() {
   mkdir -p "$MEMORY_DIR" "$LOG_DIR" "$LEARN_DIR"
