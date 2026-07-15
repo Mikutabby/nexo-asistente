@@ -12,31 +12,6 @@ Con el tiempo, Nexo:
 - Automatiza tareas repetitivas
 - Optimiza tu sistema basado en tus habitos
 
-## Seguridad
-
-Nexo incluye un sistema de verificacion de identidad que protege la configuracion del creador. La verificacion se realiza internamente y no expone metodos al usuario.
-
-### Caracteristicas de seguridad
-
-- Verificacion de identidad automatica
-- Modo restringido para usuarios no autorizados
-- Proteccion de archivos de configuracion
-- Logging de intentos de acceso no autorizados
-
-### Que permite Nexo
-
-- ✅ Ejecutar comandos del sistema
-- ✅ Administrar archivos y procesos
-- ✅ Instalar y configurar software
-- ✅ Gestionar la red y servicios
-- ✅ Automatizar tareas
-
-### Proteccion
-
-- Archivos de identidad protegidos contra modificacion
-- Verificacion de integridad del sistema
-- Backup cifrado con passphrase
-
 ## Estructura del repositorio
 
 ```
@@ -44,7 +19,7 @@ nexo-asistente/
 ├── agent/             Archivo agente para OpenCode
 │   └── asistente.md
 ├── core/              Scripts esenciales del sistema
-│   ├── identity/      Sistema de verificacion de identidad
+│   ├── identity/      Deteccion de usuario
 │   ├── monitor/       Monitoreo de temperatura
 │   └── system/        Utilidades del sistema
 ├── memory/            Sistema de memoria persistente
@@ -216,9 +191,9 @@ graphify install --platform opencode
 
 Graphify reduce hasta 71.5x el consumo de tokens vs leer archivos en bruto.
 
-## Backup y restauracion (Solo el creador)
+## Backup y restauracion
 
-Nexo tiene un sistema de backup completo protegido con passphrase del creador.
+Nexo incluye un sistema de backup completo.
 
 ### Crear backup
 
@@ -226,11 +201,8 @@ Nexo tiene un sistema de backup completo protegido con passphrase del creador.
 # Backup completo
 ./backup/nexo-backup.sh
 
-# Backup rapido (sin logs)
+# Backup rapido
 ./backup/nexo-backup.sh --quick
-
-# Verificar backups existentes
-./backup/nexo-backup.sh --verify
 ```
 
 ### Restaurar Nexo
@@ -239,30 +211,16 @@ Nexo tiene un sistema de backup completo protegido con passphrase del creador.
 # Restaurar ultimo backup
 ./backup/nexo-restore.sh
 
-# Listar backups disponibles
-./backup/nexo-restore.sh --list
-
-# Restaurar backup especifico
-./backup/nexo-restore.sh --file /path/to/nexo-backup-YYYYMMDD-HHMMSS.tar.gz
-
-# Restauracion completa (clona repo + reinstala + restaura backup)
+# Restauracion completa
 ./backup/nexo-restore.sh --full
 ```
 
 ### Que se respalda
 
-- Identidad y memoria (identity.json, memory.json)
-- Agente (asistente.md)
-- Scripts (say.sh, voice.sh, check-identity.sh, etc.)
-- Knowledge graph (graph.db)
+- Memoria y configuracion
+- Scripts y herramientas
+- Knowledge graph
 - Configuracion de OpenCode
-- Herramientas (nexo-model, nexo-tools, etc.)
-
-### Proteccion
-
-- Solo el creador autorizado puede crear/restaurar backups
-- Checksum SHA256 para verificar integridad
-- Los backups se almacenan en `~/.nexo-backups/`
 
 ### Recuperacion rapida
 
