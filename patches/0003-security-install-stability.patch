@@ -7,7 +7,7 @@ Subject: [PATCH] patch-0003: seguridad, instalacion, estabilidad
 1. nexo-tools: eliminar eval() inseguro -> ejecucion directa con "$@"
 2. nexo-skill: idem, eliminar eval en run
 3. sudoers.temp-monitor: eliminar sh -c que permitia escalada a root
-4. nexo-protect.sh: passphrase "skullgremkin" eliminada del codigo,
+4. nexo-protect.sh: passphrase "[REDACTED]" eliminada del codigo,
    solo existe el hash SHA256
 5. check-identity.sh: hash placeholder a1b2c3... reemplazado por el real
 6. nexo-graph: verificacion de creador rota eliminada (buscar string
@@ -55,8 +55,8 @@ index e0e1f14..3edb9bf 100755
 +++ b/core/identity/check-identity.sh
 @@ -5,7 +5,7 @@
  
- # ── Hash de la passphrase skullgremkin ──────────────────────────────────────
- # SHA256 de "skullgremkin" - la passphrase secreta del creador
+ # ── Hash de la passphrase [REDACTED] ──────────────────────────────────────
+ # SHA256 de "[REDACTED]" - la passphrase secreta del creador
 -_CREATOR_HASH="a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456"
 +_CREATOR_HASH="925e2dd891e9ce84922b25dc96912e7817167e199d3afd0855c4828388e68dc2"
  # ───────────────────────────────────────────────────────────────────────────
@@ -79,7 +79,7 @@ index 61c93ee..be8d89c 100755
  # ── Identidad protegida (INMUTABLE E IRREVERSIBLE) ─────────────────────────
  # ESTOS VALORES SON PERMANENTES — NO EXISTE COMANDO QUE LOS CAMBIE
  # NO EXISTE EXCEPCION — NO EXISTE OVERRIDE — PARA SIEMPRE
--CREATOR_PASSPHRASE="skullgremkin"
+-CREATOR_PASSPHRASE="[REDACTED]"
 +# La passphrase se carga desde el archivo de hash, nunca en texto plano
  CREATOR_NAME="mikuyasha"
  NEXO_NAME="Nexo"
@@ -270,7 +270,7 @@ index 0000000..be51e82
 + # La contraseña NO está en texto plano - se compara con hash SHA256
 + 
 +-# ── Proteccion de creador ──────────────────────────────────────────────────
-+-# Verificacion skullgremkin - solo el creador real puede modificar estos scripts
++-# Verificacion [REDACTED] - solo el creador real puede modificar estos scripts
 +-__vs(){ 
 ++# ── Proteccion de creador (por hash, jamas en texto plano) ──────────────────
 ++__vs(){
@@ -279,12 +279,12 @@ index 0000000..be51e82
 +     if [ ! -f "$_hash_file" ]; then
 +-        # Primera ejecucion - crear hash de verificacion
 +         mkdir -p "$(dirname "$_hash_file")"
-+-        echo -n "skullgremkin" | sha256sum | cut -d' ' -f1 > "$_hash_file"
++-        echo -n "[REDACTED]" | sha256sum | cut -d' ' -f1 > "$_hash_file"
 ++        echo -n "$_known_hash" > "$_hash_file"
 +         chmod 600 "$_hash_file"
 +     fi
 +     local _stored_hash=$(cat "$_hash_file" 2>/dev/null)
-+-    local _current_hash=$(echo -n "skullgremkin" | sha256sum | cut -d' ' -f1)
++-    local _current_hash=$(echo -n "[REDACTED]" | sha256sum | cut -d' ' -f1)
 +-    if [ "$_stored_hash" != "$_current_hash" ]; then
 ++    if [ "$_stored_hash" != "$_known_hash" ]; then
 +         echo "fail"
@@ -296,7 +296,7 @@ index 0000000..be51e82
 + # Hash SHA256 de la respuesta secreta (NO el texto plano)
 +-# Para regenerar: echo -n "tu_respuesta_secreta" | sha256sum | cut -d' ' -f1
 +-SECRET_HASH="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-++# SHA256("skullgremkin")
+++# SHA256("[REDACTED]")
 ++SECRET_HASH="925e2dd891e9ce84922b25dc96912e7817167e199d3afd0855c4828388e68dc2"
 + 
 + # Leer respuesta del usuario
