@@ -12,6 +12,21 @@ Con el tiempo, Nexo:
 - Automatiza tareas repetitivas
 - Optimiza tu sistema basado en tus habitos
 
+## Seguridad y Privacidad
+
+Nexo procesa datos localmente en tu PC. No envía información a servicios externos.
+
+### Caracteristicas
+
+- Verificacion de identidad integrada
+- Archivos de configuracion protegidos
+- Backups cifrados con GPG
+- Logs de actividad
+
+### Filosofia
+
+Nexo esta disenado para ser tu asistente personal, no para espiarte. Todos los datos se mantienen en tu maquina.
+
 ## Estructura del repositorio
 
 ```
