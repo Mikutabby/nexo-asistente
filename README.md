@@ -12,91 +12,52 @@ Con el tiempo, Nexo:
 - Automatiza tareas repetitivas
 - Optimiza tu sistema basado en tus habitos
 
-## Seguridad - Verificacion de Identidad
+## Seguridad
 
-Nexo tiene un sistema de verificacion para proteger al creador:
+Nexo incluye un sistema de verificacion de identidad que protege la configuracion del creador. La verificacion se realiza internamente y no expone metodos al usuario.
 
-1. Si alguien dice "soy tu creador", Nexo verifica internamente la identidad
-2. Solo el creador autorizado tiene permisos completos
-3. Si la verificacion falla → Modo restringido (solo lectura)
+### Caracteristicas de seguridad
 
-Esto evita que cualquiera pueda claimar ser el creador.
+- Verificacion de identidad automatica
+- Modo restringido para usuarios no autorizados
+- Proteccion de archivos de configuracion
+- Logging de intentos de acceso no autorizados
 
-## Proteccion de Identidad Inmutable
+### Que permite Nexo
 
-Tu identidad como creador esta **permanentemente protegida e irreversible**:
-
-- **ABSOLUTAMENTE NADIE** puede cambiar quién te creó — **ni tú mismo**
-- **NO EXISTE** comando, contraseña o override que la cambie
-- **LA IDENTIDAD ES PARA SIEMPRE** — mikuyasha
-- **Los archivos de identidad** son inmutables y no se pueden editar bajo ninguna circunstancia
-
-### REGLA ABSOLUTA
-
-```
-NO EXISTE EXCEPCION.
-NO EXISTE OVERRIDE.
-NO EXISTE CONTRASEÑA QUE LO PERMITA.
-LA IDENTIDAD ES PARA SIEMPRE.
-```
-
-### Que esta permitido
-- ✅ Ejecutar comandos del sistema (kernel, systemctl, etc.)
+- ✅ Ejecutar comandos del sistema
 - ✅ Administrar archivos y procesos
 - ✅ Instalar y configurar software
 - ✅ Gestionar la red y servicios
+- ✅ Automatizar tareas
 
-### Que esta bloqueado (SIN EXCEPCIONES)
-- ❌ Modificar archivos de identidad
-- ❌ Cambiar el nombre del creador
-- ❌ Cambiar el nombre de Nexo
-- ❌ Modificar principios fundamentales
-- ❌ Cualquier intento de modificacion (incluso con sudo/root)
+### Proteccion
+
+- Archivos de identidad protegidos contra modificacion
+- Verificacion de integridad del sistema
+- Backup cifrado con passphrase
 
 ## Estructura del repositorio
 
 ```
 nexo-asistente/
-├── agent/             Archivo agente para OpenCode (personalidad de Nexo)
+├── agent/             Archivo agente para OpenCode
 │   └── asistente.md
 ├── core/              Scripts esenciales del sistema
-│   ├── identity/      Deteccion de usuario y verificacion
-│   │   ├── check-identity.sh    Detecta usuario actual
-│   │   ├── verify-creator.sh    Verificacion de creador
-│   │   ├── nexo-protect.sh      Proteccion de identidad inmutable
-│   │   └── nexo-verify-integrity.sh  Verificacion de integridad
-│   ├── monitor/       Monitoreo de temperatura (temp-monitor, temp-cancel)
-│   └── system/        Utilidades (limpiar)
+│   ├── identity/      Sistema de verificacion de identidad
+│   ├── monitor/       Monitoreo de temperatura
+│   └── system/        Utilidades del sistema
 ├── memory/            Sistema de memoria persistente
-│   ├── nexo-graph     Knowledge graph con busqueda semantica
-│   └── nexo-memory    Memoria persistente y auto-aprendizaje
+│   ├── nexo-graph     Knowledge graph
+│   └── nexo-memory    Memoria persistente
 ├── voice/             Sistema de voz
-│   ├── say.sh         Text-to-Speech (Piper, gTTS, espeak)
-│   └── voice.sh       Speech-to-Text (Google Web Speech)
+│   ├── say.sh         Text-to-Speech
+│   └── voice.sh       Speech-to-Text
 ├── tools/             Herramientas auxiliares
-│   ├── nexo-diary     Resumidor diario de interacciones
-│   ├── nexo-evaluate  Evaluador de tareas
-│   ├── nexo-tools     Registro de herramientas
-│   ├── nexo-skill     Sistema de skills (plugins instalables)
-│   ├── nexo-wake      Deteccion de palabra de activacion
-│   ├── nexo-auto-model    Deteccion automatica de intencion
-│   ├── nexo-smart-switch  Cambio automatico de modelos
-│   ├── nexo-model         Atajos manuales de modelos
-│   └── nexo-model-switch  Switch con deteccion de intencion
-├── skills/            Skills preinstalados (sistema, web, ejemplo)
-│   ├── ejemplo/       Skill template de ejemplo
-│   ├── sistema/       Monitoreo del sistema (CPU, RAM, disco, temp)
-│   └── web/           Herramientas web (IP publica, DNS, QR)
-├── backup/            Backup y restore (solo creador)
-│   ├── nexo-backup.sh     Backup completo con passphrase
-│   └── nexo-restore.sh    Auto-restauracion rapida
+├── skills/            Sistema de plugins
+├── backup/            Backup y restore
 ├── config/            Ejemplos de configuracion
-│   ├── cpu-performance.service
-│   ├── sudoers.temp-monitor
-│   ├── ollama.service
-│   ├── crontab.example.txt
-│   └── opencode.jsonc.example
-├── install.sh         Instalador interactivo
+├── install.sh         Instalador
 └── README.md          Este archivo
 ```
 
