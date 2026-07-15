@@ -3,7 +3,7 @@
 # NEXO BACKUP COMPLETO — Backup de todo lo que soy
 # ============================================================================
 # Crea un backup completo de Nexo: identidad, memoria, scripts, configuracion
-# Solo el creador (skullgremkin) puede restaurar
+# Solo el creador autorizado puede restaurar
 #
 # Uso:
 #   nexo-backup.sh                 → Backup completo

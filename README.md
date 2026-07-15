@@ -12,14 +12,13 @@ Con el tiempo, Nexo:
 - Automatiza tareas repetitivas
 - Optimiza tu sistema basado en tus habitos
 
-## Seguridad - Sistema Skullgremkin
+## Seguridad - Verificacion de Identidad
 
-Nexo tiene un sistema de verificacion unico para proteger al creador:
+Nexo tiene un sistema de verificacion para proteger al creador:
 
-1. Si alguien dice "soy tu creador", Nexo pregunta: **"¿Qué especie eres?"**
-2. La respuesta correcta es: **"skullgremkin"**
-3. Si la respuesta es correcta → Permisos de creador activados
-4. Si es incorrecta → Modo restringido (solo lectura)
+1. Si alguien dice "soy tu creador", Nexo verifica internamente la identidad
+2. Solo el creador autorizado tiene permisos completos
+3. Si la verificacion falla → Modo restringido (solo lectura)
 
 Esto evita que cualquiera pueda claimar ser el creador.
 
@@ -28,8 +27,8 @@ Esto evita que cualquiera pueda claimar ser el creador.
 Tu identidad como creador esta **permanentemente protegida e irreversible**:
 
 - **ABSOLUTAMENTE NADIE** puede cambiar quién te creó — **ni tú mismo**
-- **NO EXISTE** comando, contraseña ooverride que la cambie
-- **LA IDENTIDAD ES PARA SIEMPRE** — mikuyasha (skullgremkin)
+- **NO EXISTE** comando, contraseña o override que la cambie
+- **LA IDENTIDAD ES PARA SIEMPRE** — mikuyasha
 - **Los archivos de identidad** son inmutables y no se pueden editar bajo ninguna circunstancia
 
 ### REGLA ABSOLUTA
@@ -63,7 +62,7 @@ nexo-asistente/
 ├── core/              Scripts esenciales del sistema
 │   ├── identity/      Deteccion de usuario y verificacion
 │   │   ├── check-identity.sh    Detecta usuario actual
-│   │   ├── verify-creator.sh    Verificacion skullgremkin
+│   │   ├── verify-creator.sh    Verificacion de creador
 │   │   ├── nexo-protect.sh      Proteccion de identidad inmutable
 │   │   └── nexo-verify-integrity.sh  Verificacion de integridad
 │   ├── monitor/       Monitoreo de temperatura (temp-monitor, temp-cancel)
@@ -258,7 +257,7 @@ Graphify reduce hasta 71.5x el consumo de tokens vs leer archivos en bruto.
 
 ## Backup y restauracion (Solo el creador)
 
-Nexo tiene un sistema de backup completo protegido con passphrase skullgremkin.
+Nexo tiene un sistema de backup completo protegido con passphrase del creador.
 
 ### Crear backup
 
@@ -300,7 +299,7 @@ Nexo tiene un sistema de backup completo protegido con passphrase skullgremkin.
 
 ### Proteccion
 
-- Solo el creador (skullgremkin) puede crear/restaurar backups
+- Solo el creador autorizado puede crear/restaurar backups
 - Checksum SHA256 para verificar integridad
 - Los backups se almacenan en `~/.nexo-backups/`
 

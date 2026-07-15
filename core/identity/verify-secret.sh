@@ -21,7 +21,6 @@ __vs(){
 # ───────────────────────────────────────────────────────────────────────────
 
 # Hash SHA256 de la respuesta secreta (NO el texto plano)
-# SHA256("skullgremkin")
 SECRET_HASH="925e2dd891e9ce84922b25dc96912e7817167e199d3afd0855c4828388e68dc2"
 
 # Leer respuesta del usuario

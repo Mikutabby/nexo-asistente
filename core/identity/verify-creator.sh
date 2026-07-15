@@ -1,5 +1,5 @@
 #!/bin/bash
-# verify-creator.sh - Sistema de verificacion Skullgremkin
+# verify-creator.sh - Sistema de verificacion de creador
 # Uso: verify-creator.sh "respuesta del usuario"
 # Retorna: 0 si es creator, 1 si no lo es
 
@@ -17,7 +17,7 @@ log_verification() {
 # Normalizar respuesta (lowercase, trim)
 NORMALIZED=$(echo "$RESPONSE" | tr '[:upper:]' '[:lower:]' | xargs)
 
-# Verificar si la respuesta es "skullgremkin"
+# Verificar si la respuesta coincide con la passphrase del creador
 CREATOR_PASS=$(cat "$HOME/.nexo-creator-pass" 2>/dev/null)
 if [ "$NORMALIZED" = "$CREATOR_PASS" ]; then
     # Marcar usuario como creador en memoria

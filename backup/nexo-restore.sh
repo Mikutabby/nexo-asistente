@@ -3,7 +3,7 @@
 # NEXO AUTO-RESTORE — Restauración rápida de Nexo
 # ============================================================================
 # Restaura Nexo desde un backup completo
-# Solo el creador (skullgremkin) puede restaurar
+# Solo el creador autorizado puede restaurar
 #
 # Uso:
 #   nexo-restore.sh                    → Restaurar último backup

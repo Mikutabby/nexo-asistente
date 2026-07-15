@@ -1,10 +1,8 @@
 #!/bin/bash
 # check-identity.sh - Detecta al usuario actual del sistema
-# Sistema de verificacion Skullgremkin
 # Uso: check-identity.sh  -> imprime "creator", "known", "unknown" o "nobody"
 
-# ── Hash de la passphrase skullgremkin ──────────────────────────────────────
-# SHA256 de "skullgremkin" - la passphrase secreta del creador
+# ── Hash de verificacion del creador ────────────────────────────────────────
 _CREATOR_HASH="925e2dd891e9ce84922b25dc96912e7817167e199d3afd0855c4828388e68dc2"
 # ───────────────────────────────────────────────────────────────────────────
 
@@ -36,7 +34,7 @@ if [ -f "$MEMORY_DIR/memory.json" ]; then
     STORED_USER=$(python3 -c "import json; d=json.load(open('$MEMORY_DIR/memory.json')); print(d.get('user_hash',''))" 2>/dev/null)
     
     if [ "$USER_HASH" = "$STORED_USER" ]; then
-        # Verificar si es el creador (tiene la passphrase skullgremkin)
+        # Verificar si es el creador (tiene la passphrase autorizada)
         CREATOR_STATUS=$(python3 -c "import json; d=json.load(open('$MEMORY_DIR/memory.json')); print(d.get('is_creator', False))" 2>/dev/null)
         
         if [ "$CREATOR_STATUS" = "True" ]; then
