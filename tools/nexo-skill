@@ -127,6 +127,23 @@ case "$CMD" in
         skill_dir="$SKILLS_DIR/$skill_name"
         exec_def=$(echo "$exec_def" | sed "s|\$SKILL_DIR|$skill_dir|g; s|\$HOME|$HOME|g")
         
+        # Whitelist de comandos permitidos (SEGURIDAD)
+        SKILL_ALLOWED_CMDS="echo cat ls grep find wc sort head tail date mkdir cp mv rm chmod python3 bash sh"
+        base_cmd=$(echo "$exec_def" | awk '{print $1}')
+        base_cmd_name=$(basename "$base_cmd")
+        allowed=false
+        for ok_cmd in $SKILL_ALLOWED_CMDS; do
+            if [ "$base_cmd_name" = "$ok_cmd" ]; then
+                allowed=true
+                break
+            fi
+        done
+        if [ "$allowed" = false ]; then
+            echo "❌ Comando no permitido: $base_cmd_name"
+            echo "   Permitidos: $SKILL_ALLOWED_CMDS"
+            exit 1
+        fi
+        
         # Ejecutar (pasando argumentos de forma segura)
         if [[ "$exec_def" == ./scripts/* ]]; then
             bash "$skill_dir/${exec_def#./}" "$@"

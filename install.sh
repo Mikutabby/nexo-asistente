@@ -14,7 +14,6 @@ BLUE='\033[0;34m'; CYAN='\033[0;36m'; NC='\033[0m'
 ok()   { echo -e "${GREEN}[OK]${NC} $1"; }
 info() { echo -e "${BLUE}[i]${NC} $1"; }
 warn() { echo -e "${YELLOW}[!]${NC} $1"; }
-err()  { echo -e "${RED}[ERROR]${NC} $1"; }
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 INSTALL_DIR="$HOME/.local/bin"
@@ -145,7 +144,6 @@ info "Paso 3: Copiar scripts del sistema"
 mkdir -p "$INSTALL_DIR"
 
 # Core
-cp "$SCRIPT_DIR/core/identity/check-identity.sh" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/check-identity.sh"
 cp "$SCRIPT_DIR/core/identity/verify-creator.sh" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/verify-creator.sh"
 cp "$SCRIPT_DIR/core/identity/verify-secret.sh" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/verify-secret.sh"
 cp "$SCRIPT_DIR/core/identity/nexo-protect.sh" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/nexo-protect.sh"
@@ -153,6 +151,10 @@ cp "$SCRIPT_DIR/core/identity/nexo-verify-integrity.sh" "$INSTALL_DIR/" 2>/dev/n
 cp "$SCRIPT_DIR/core/monitor/temp-monitor.sh" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/temp-monitor.sh"
 cp "$SCRIPT_DIR/core/monitor/temp-cancel.sh" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/temp-cancel.sh"
 cp "$SCRIPT_DIR/core/system/limpiar" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/limpiar"
+
+# Security library
+mkdir -p "$INSTALL_DIR/lib"
+cp "$SCRIPT_DIR/lib/security.sh" "$INSTALL_DIR/lib/" 2>/dev/null && chmod +x "$INSTALL_DIR/lib/security.sh"
 
 # Memory
 cp "$SCRIPT_DIR/memory/nexo-graph" "$INSTALL_DIR/" 2>/dev/null && chmod +x "$INSTALL_DIR/nexo-graph"

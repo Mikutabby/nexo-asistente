@@ -236,29 +236,43 @@ class GraphStore:
             )
             params.extend([pattern, pattern, pattern])
 
-        sql = f"""SELECT *, (
-            CASE WHEN name LIKE ? THEN 3 ELSE 0 END +
-            CASE WHEN description LIKE ? THEN 3 ELSE 0 END +
-            CASE WHEN data LIKE ? THEN 1 ELSE 0 END
-        ) AS relevance
-        FROM memory_nodes
-        WHERE id NOT IN ('root', 'user', 'directives', 'world')
-        AND ({' OR '.join(conditions)})
-        ORDER BY relevance DESC, access_count DESC
-        LIMIT ?"""
+        sql = f"""SELECT *
+            FROM memory_nodes
+            WHERE id NOT IN ('root', 'user', 'directives', 'world')
+            AND ({' OR '.join(conditions)})
+            LIMIT ?"""
 
-        # Add params for the CASE part (first keyword for scoring)
-        kw = keywords[0]
-        pattern_first = f"%{kw}%"
-        search_params = [pattern_first, pattern_first, pattern_first] + params + [limit]
+        params.append(limit)
 
         with self._lock:
-            rows = self.conn.execute(sql, search_params).fetchall()
+            rows = self.conn.execute(sql, params).fetchall()
             results = [dict(r) for r in rows]
-            # Touch matched nodes
+
+            # Scoring: considera TODOS los keywords (no solo el primero)
             for r in results:
+                score = 0
+                name = (r.get("name") or "").lower()
+                desc = (r.get("description") or "").lower()
+                data = (r.get("data") or "").lower()
+                for kw in keywords:
+                    kw_low = kw.lower()
+                    if kw_low in name:
+                        score += 3
+                    if kw_low in desc:
+                        score += 3
+                    if kw_low in data:
+                        score += 1
+                r["_relevance"] = score
+
+            results.sort(
+                key=lambda x: (x["_relevance"], x.get("access_count", 0)),
+                reverse=True,
+            )
+
+            # Touch matched nodes
+            for r in results[:limit]:
                 self.touch_node(r["id"])
-            return results
+            return results[:limit]
 
     def fts_search(self, query, limit=10):
         """Búsqueda Full-Text Search (FTS5) con ranking BM25."""
@@ -340,7 +354,7 @@ class GraphStore:
         union = set_a | set_b
         return len(intersection) / len(union) if union else 0.0
 
-    def recall_search(self, query, threshold=0.15, limit=5):
+    def recall_search(self, query, threshold=0.05, limit=5):
         """Recall Gate: buscar por Jaccard similarity con el query.
         Retorna nodos cuya data tiene similitud de Jaccard > threshold.
         """
@@ -720,7 +734,7 @@ def cmd_recall(args):
     store = GraphStore()
     results = store.recall_search(query)
     if not results:
-        print(f"🔍 Recall Gate: sin resultados para '{query}' (threshold ≥ 0.15)")
+        print(f"🔍 Recall Gate: sin resultados para '{query}' (threshold ≥ 0.05)")
         store.close()
         return
     print(f"🔍 Recall Gate — '{query}':")

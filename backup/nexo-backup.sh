@@ -35,7 +35,6 @@ CRITICAL_PATHS=(
     "$NEXO_HOME/.opencode/say.sh"
     "$NEXO_HOME/.opencode/voice.sh"
     "$NEXO_HOME/.local/bin/check-identity.sh"
-    "$NEXO_HOME/.local/bin/face-recognize.py"
     "$NEXO_HOME/.local/bin/temp-monitor.sh"
     "$NEXO_HOME/.local/bin/temp-cancel.sh"
     "$NEXO_HOME/.local/bin/limpiar"

@@ -138,7 +138,7 @@ for line in lines:
   echo "⚡ Ejecutando: $name — $desc"
   echo "   \$ $exec_cmd $*"
   echo ""
-   $exec_cmd "$@"
+   eval -- "$exec_cmd" "$@"
 }
 
 cmd_search() {

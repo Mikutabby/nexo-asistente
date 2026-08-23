@@ -1,42 +1,18 @@
-# ── Archivos sensibles ────────────────────────────────────────────────
-# NUNCA subir passwords, tokens, keys, o archivos cifrados
-*.gpg
-*.key
-*.pem
-*.p12
+__pycache__/
+*.pyc
+*.pyo
 .env
-.env.*
-*.secret
-*password*
-*token*
-*key*
-
-# ── Backups y temporales ──────────────────────────────────────────────
-*.tar.gz
-*.bak
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 *.tmp
 *.swp
 *~
-.nexo-backup-pass
-.nexo-memory/
-
-# ── Sistema ───────────────────────────────────────────────────────────
 .DS_Store
-Thumbs.db
-__pycache__/
-*.pyc
 node_modules/
-.vscode/
-.idea/
-
-# ── Logs ──────────────────────────────────────────────────────────────
-*.log
-logs/
-
-# ── Build artifacts ───────────────────────────────────────────────────
+venv/
+.venv/
+*.egg-info/
 dist/
 build/
-*.o
-*.so
-*.dylib
-.creator-pass

@@ -81,25 +81,82 @@ scan_logs() {
     warn "Se encontraron $found errores nuevos. Ejecutá: nexo-heal fix"
   fi
   log_heal "scan: $found errores nuevos"
-  return "$found"
+  SCAN_FOUND=$found
+  return 0
 }
 
 # ─── Fixes conocidos (hardcoded) ───────────────────────────────────────
+# Formato: "patron_error|comando_seguro"
+# NOTA: Los comandos se ejecutan via execute_safe_command (sin eval)
 KNOWN_FIXES=(
-  "ollama:Connection refused|ollama serve >/dev/null 2>&1 &"
+  "ollama:Connection refused|ollama serve"
   "ollama:not found|curl -fsSL https://ollama.com/install.sh | sh"
-  "nexo-graph:No such file|ln -sf $HOME/.local/bin/nexo-graph $HOME/.local/bin/nexo-graph 2>/dev/null; chmod +x $HOME/.local/bin/nexo-graph"
-  "nexo-memory:command not found|ln -sf $HOME/.local/bin/nexo-memory . 2>/dev/null"
+  "nexo-graph:No such file|ln -sf $HOME/.local/bin/nexo-graph $HOME/.local/bin/nexo-graph"
+  "nexo-memory:command not found|ln -sf $HOME/.local/bin/nexo-memory ."
   "Permission denied|chmod +x"
-  "gpg:command not found|sudo apt install -y gpg 2>/dev/null || sudo pacman -S --noconfirm gnupg 2>/dev/null"
-  "pip3:command not found|sudo apt install -y python3-pip 2>/dev/null || sudo pacman -S --noconfirm python-pip 2>/dev/null"
-  "speech_recognition:ModuleNotFoundError|pip3 install --break-system-packages SpeechRecognition 2>/dev/null || pip3 install SpeechRecognition 2>/dev/null"
-  "gtts:ModuleNotFoundError|pip3 install --break-system-packages gtts 2>/dev/null || pip3 install gtts 2>/dev/null"
-  "piper:not found|wget -q https://github.com/rhasspy/piper/releases/latest/download/piper_linux_x86_64.tar.gz -O /tmp/piper.tar.gz && tar xzf /tmp/piper.tar.gz -C $HOME/.local/bin/ && rm /tmp/piper.tar.gz"
-  "flock:command not found|sudo apt install -y util-linux 2>/dev/null || true"
-  "sensors:command not found|sudo apt install -y lm-sensors 2>/dev/null || sudo pacman -S --noconfirm lm_sensors 2>/dev/null"
-  "espeak-ng:command not found|sudo apt install -y espeak-ng 2>/dev/null || sudo pacman -S --noconfirm espeak-ng 2>/dev/null"
+  "gpg:command not found|sudo apt install -y gpg"
+  "pip3:command not found|sudo apt install -y python3-pip"
+  "speech_recognition:ModuleNotFoundError|pip3 install --break-system-packages SpeechRecognition"
+  "gtts:ModuleNotFoundError|pip3 install --break-system-packages gtts"
+  "piper:not found|wget -q https://github.com/rhasspy/piper/releases/latest/download/piper_linux_x86_64.tar.gz -O /tmp/piper.tar.gz"
+  "flock:command not found|sudo apt install -y util-linux"
+  "sensors:command not found|sudo apt install -y lm-sensors"
+  "espeak-ng:command not found|sudo apt install -y espeak-ng"
 )
+
+# ─── Whitelist de comandos permitidos (SEGURIDAD) ──────────────────────
+# Solo estos comandos base pueden ejecutarse. Cualquier otro es rechazado.
+ALLOWED_COMMANDS=(
+  "ollama"
+  "curl"
+  "ln"
+  "chmod"
+  "sudo"
+  "apt"
+  "pacman"
+  "pip3"
+  "wget"
+  "tar"
+  "rm"
+  "cp"
+  "mkdir"
+  "systemctl"
+  "espeak-ng"
+  "mpg123"
+  "aplay"
+)
+
+# ─── Ejecutar comando de forma segura (SIN eval) ───────────────────────
+execute_safe_command() {
+  local cmd="$1"
+
+  if [ -z "$cmd" ]; then
+    return 1
+  fi
+
+  # Extraer el comando base (primera palabra)
+  local base_cmd
+  base_cmd=$(echo "$cmd" | awk '{print $1}')
+
+  # Verificar si el comando base está en la whitelist
+  local allowed=false
+  for allowed_cmd in "${ALLOWED_COMMANDS[@]}"; do
+    if [ "$base_cmd" = "$allowed_cmd" ]; then
+      allowed=true
+      break
+    fi
+  done
+
+  if [ "$allowed" = false ]; then
+    warn "  Comando NO permitido: $base_cmd"
+    log_heal "BLOCKED: $base_cmd not in whitelist"
+    return 1
+  fi
+
+  # Ejecutar con bash -c (no eval) y capturar salida
+  bash -c "$cmd" 2>/dev/null
+  return $?
+}
 
 # ─── Buscar fix en knowledge graph o en known_fixes ──────────────────────
 find_fix() {
@@ -146,7 +203,9 @@ apply_fix() {
 
   info "  Aplicando fix: $fix_cmd"
   log_heal "apply: $fix_cmd"
-  if eval "$fix_cmd" 2>/dev/null; then
+
+  # Ejecutar de forma segura (sin eval, con whitelist)
+  if execute_safe_command "$fix_cmd"; then
     ok "  Fix aplicado exitosamente"
     log_heal "success: $fix_cmd"
     return 0

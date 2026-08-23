@@ -2,11 +2,6 @@
 # 🧠 Nexo Memory System - Aprendizaje persistente
 # Uso: nexo-memory [load|save|learn|log|status]
 
-# ── Proteccion de creador ──────────────────────────────────────────────────
-_0x6d(){ local _h="753018f633123c3f5033c51caae9f94f37f508f8b8240c3a362f5f7423c9e879"
-local _s=$(grep -o "mikuyasha" "$HOME/.local/bin/nexo-graph" 2>/dev/null | head -1)
-if [ "$(echo -n "$_s" | sha256sum 2>/dev/null | cut -d' ' -f1)" != "$_h" ]; then
-echo "[NEXO] Creador no verificado. Integridad comprometida."; exit 1; fi; }; _0x6d
 # ───────────────────────────────────────────────────────────────────────────
 
 MEMORY_DIR="$HOME/.nexo-memory"
@@ -213,6 +208,10 @@ case "${1:-load}" in
     VALUE="${3:-}"
     [[ -z "$VALUE" ]] && echo "❌ Uso: nexo-memory save <tipo> <valor>" && exit 1
     
+    # Adquirir lock para escritura segura
+    LOCK_FD=$(acquire_lock 5) || { echo "❌ No se pudo adquirir lock"; exit 1; }
+    trap 'release_lock "$LOCK_FD"' EXIT
+    
     case "$TYPE" in
       fact)
         jq --arg v "$VALUE" '.user.facts += [$v]' "$MEMORY_FILE" > "${MEMORY_FILE}.tmp" && mv "${MEMORY_FILE}.tmp" "$MEMORY_FILE"
@@ -275,20 +274,32 @@ case "${1:-load}" in
     ensure_dirs
     echo "🔄 Analizando logs para aprender..."
     
-    # Extraer comandos más usados del historial
+    # 1. Extraer comandos más usados del historial
     HISTORY_FILE="$HOME/.bash_history"
     if [[ -f "$HISTORY_FILE" ]]; then
-      TOP_CMDS=$(tail -200 "$HISTORY_FILE" | sort | uniq -c | sort -rn | head -10)
+      TOP_CMDS=$(tail -500 "$HISTORY_FILE" | sort | uniq -c | sort -rn | head -15)
       echo "$TOP_CMDS" > "$LEARN_DIR/top_commands.txt"
       echo "✅ Comandos frecuentes guardados"
     fi
     
-    # Analizar temperatura (si hay logs)
-    TEMP_LOG="/tmp/temp-monitor.log"
-    if [[ -f "$TEMP_LOG" ]]; then
-      AVG_TEMP=$(awk '{sum+=$1; count++} END {if(count>0) printf "%.0f", sum/count}' "$TEMP_LOG" 2>/dev/null)
-      echo "$AVG_TEMP" > "$LEARN_DIR/avg_temp.txt"
-      echo "✅ Temperatura promedio: ${AVG_TEMP}°C"
+    # 2. Analizar logs de interacciones recientes
+    RECENT_LOGS=$(ls -t "$LOG_DIR"/*.log 2>/dev/null | head -7)
+    if [[ -n "$RECENT_LOGS" ]]; then
+      TOTAL_INTERACTIONS=$(echo "$RECENT_LOGS" | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}')
+      echo "$TOTAL_INTERACTIONS" > "$LEARN_DIR/total_interactions.txt"
+      echo "✅ Interacciones totales: $TOTAL_INTERACTIONS"
+    fi
+    
+    # 3. Analizar errores recientes
+    RECENT_ERRORS=$(echo "$RECENT_LOGS" | xargs grep -h "ERROR\|error\|falló\|fallo" 2>/dev/null | tail -10)
+    if [[ -n "$RECENT_ERRORS" ]]; then
+      echo "$RECENT_ERRORS" > "$LEARN_DIR/recent_errors.txt"
+      echo "✅ Errores recientes guardados"
+    fi
+    
+    # 4. Actualizar knowledge graph con estadísticas
+    if command -v nexo-graph &>/dev/null; then
+      nexo-graph add world "Sistema: Uso reciente" "Comandos más usados: $(head -3 "$LEARN_DIR/top_commands.txt" 2>/dev/null | awk '{print $2}' | paste -sd, -)" 2>/dev/null
     fi
     
     echo "✅ Auto-análisis completado"

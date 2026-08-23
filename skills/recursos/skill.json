@@ -1,0 +1,48 @@
+{
+  "name": "recursos",
+  "version": "1.0.0",
+  "description": "Gestión de recursos del sistema: monitoreo, limitación y limpieza automática",
+  "author": "Nexo",
+  "commands": {
+    "monitorear": {
+      "description": "Monitorear recursos en tiempo real",
+      "exec": "~/.local/bin/nexo-resource-monitor once"
+    },
+    "daemon": {
+      "description": "Iniciar monitor en segundo plano",
+      "exec": "~/.local/bin/nexo-resource-monitor daemon"
+    },
+    "detener": {
+      "description": "Detener monitor en segundo plano",
+      "exec": "pkill -f nexo-resource-monitor && echo 'Monitor detenido'"
+    },
+    "limpiar": {
+      "description": "Limpiar procesos pesados automáticamente",
+      "exec": "~/.local/bin/nexo-resource-monitor clean"
+    },
+    "estado": {
+      "description": "Ver estado del monitor",
+      "exec": "~/.local/bin/nexo-resource-monitor status"
+    },
+    "cpu": {
+      "description": "Ver procesos que más CPU consumen",
+      "exec": "ps aux --sort=-%cpu | head -10"
+    },
+    "ram": {
+      "description": "Ver procesos que más RAM consumen",
+      "exec": "ps aux --sort=-%mem | head -10"
+    },
+    "matar": {
+      "description": "Matar proceso por PID (uso: nexo-skill run recursos matar PID)",
+      "exec": "kill -15 $1 2>/dev/null && echo 'Proceso $1 terminado' || echo 'No se pudo terminar el proceso'"
+    },
+    "configurar": {
+      "description": "Configurar umbrales de alerta",
+      "exec": "echo 'Configuración actual:' && grep -E '(CPU_WARN|CPU_CRIT|RAM_WARN|RAM_CRIT)' ~/.local/bin/nexo-resource-monitor"
+    },
+    "ayuda": {
+      "description": "Mostrar ayuda del sistema de recursos",
+      "exec": "echo '=== SISTEMA DE GESTIÓN DE RECURSOS NEXO ===' && echo '' && echo 'Comandos disponibles:' && echo '  monitorear  - Verifica recursos una vez' && echo '  daemon      - Monitorea continuamente' && echo '  detener     - Detiene el monitor' && echo '  limpiar     - Limpia procesos pesados' && echo '  estado      - Ver estado del monitor' && echo '  cpu         - Procesos por CPU' && echo '  ram         - Procesos por RAM' && echo '  matar PID   - Terminar proceso' && echo '  configurar  - Ver configuración' && echo '' && echo 'Configuración por defecto:' && echo '  CPU Alerta: 70%' && echo '  CPU Crítico: 85%' && echo '  RAM Alerta: 75%' && echo '  RAM Crítico: 90%'"
+    }
+  }
+}

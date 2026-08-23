@@ -1,0 +1,14 @@
+[Unit]
+Description=Nexo Resource Monitor - Monitoreo de recursos del sistema
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/home/miku/.local/bin/nexo-resource-monitor daemon
+Restart=always
+RestartSec=10
+User=miku
+Environment=HOME=/home/miku
+
+[Install]
+WantedBy=multi-user.target

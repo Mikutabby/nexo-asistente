@@ -1,104 +1,77 @@
 #!/bin/bash
-# Monitor de temperatura - avisa por parlantes y apaga si es critico
-# Cancelar apagado: temp-cancel.sh
+# temp-monitor.sh — Monitoreo de temperatura para cron
+# Se ejecuta cada 2 minutos, verifica temperatura, y toma acción si es necesario
 
-WARN=75       # Alerta temprana (solo avisa)
-CRIT=80       # Shutdown
-COOLDOWN=480  # 8 minutos
-LOG_TAG="nexo-temp-monitor"
-STATUS_FILE="/tmp/nexo-temp-monitor-status"
+LOG_FILE="/home/miku/.nexo-memory/logs/temp.log"
+mkdir -p "$(dirname "$LOG_FILE")"
 
-# Leer temperatura
-TEMP=""
-if [ -f /sys/class/thermal/thermal_zone1/temp ]; then
-    TEMP=$(awk '{printf "%d", $1/1000}' /sys/class/thermal/thermal_zone1/temp)
-elif [ -f /sys/class/thermal/thermal_zone0/temp ]; then
-    TEMP=$(awk '{printf "%d", $1/1000}' /sys/class/thermal/thermal_zone0/temp)
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
+}
+
+get_temp() {
+    local temp=$(cat /sys/class/thermal/thermal_zone1/temp 2>/dev/null)
+    if [ -n "$temp" ]; then
+        echo $((temp / 1000))
+    else
+        echo "0"
+    fi
+}
+
+get_temp_avg() {
+    # Get average of last 5 readings
+    if [ -f "$LOG_FILE" ]; then
+        grep "Temperatura:" "$LOG_FILE" | tail -5 | grep -oP '\d+°C' | tr -d '°C' | awk '{sum+=$1; count++} END {if(count>0) print int(sum/count); else print 0}'
+    else
+        echo "0"
+    fi
+}
+
+emergency_mode() {
+    log "🚨 MODO EMERGENCIA: Temperatura crítica detectada"
+    
+    # Reducir frecuencia máxima (con sudo via PTY)
+    for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_max_freq; do
+        script -qc 'echo "0207" | sudo -S tee "'"$cpu"'" > /dev/null 2>&1' /dev/null
+    done
+    
+    # Forzar powersave (con sudo via PTY)
+    for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+        script -qc 'echo "0207" | sudo -S tee "'"$cpu"'" > /dev/null 2>&1' /dev/null
+    done
+    
+    # Reducir prioridad de procesos pesados
+    for pid in $(ps aux --sort=-%cpu | awk '$3 > 50 {print $2}' | head -5); do
+        renice +19 $pid 2>/dev/null
+    done
+    
+    log "✅ Optimizaciones de emergencia aplicadas"
+}
+
+warning_mode() {
+    log "⚠️ ALERTA: Temperatura alta detectada"
+    
+    # Reducir prioridad de procesos pesados
+    for pid in $(ps aux --sort=-%cpu | awk '$3 > 30 {print $2}' | head -3); do
+        renice +15 $pid 2>/dev/null
+    done
+    
+    log "✅ Optimizaciones de alerta aplicadas"
+}
+
+# Main
+temp=$(get_temp)
+avg=$(get_temp_avg)
+
+log "Temperatura: ${temp}°C (promedio: ${avg}°C)"
+
+if [ "$temp" -ge 80 ]; then
+    emergency_mode
+elif [ "$temp" -ge 70 ]; then
+    warning_mode
 fi
 
-if [ -z "$TEMP" ]; then
-    TEMP=$(sensors 2>/dev/null | grep "Package id 0:" | grep -oP '[+-]?\d+\.\d+°C' | head -1 | tr -d '+°C' | awk -F. '{print $1}')
-fi
-
-[ -z "$TEMP" ] && exit 1
-
-echo "$TEMP" > "$STATUS_FILE"
-logger -t "$LOG_TAG" "${TEMP}°C"
-
-# ---- PRE-ALERTA (solo aviso, sin apagar) ----
-if [ "$TEMP" -ge "$WARN" ] && [ "$TEMP" -lt "$CRIT" ]; then
-    logger -t "$LOG_TAG" "Precaucion: ${TEMP}°C"
-    notify-send -u critical -t 6000 \
-        "Temperatura: ${TEMP}°C" \
-        "Cuidado, se esta calentando." 2>/dev/null || true
-    spd-say "Cuidado, la temperatura esta en ${TEMP} grados" 2>/dev/null || true
-    exit 0
-fi
-
-# ---- CRITICO ----
-if [ "$TEMP" -ge "$CRIT" ]; then
-    # Si ya estamos en cooldown, no repetir
-    if [ -f /tmp/nexo-temp-monitor-cooldown ]; then
-        exit 0
-    fi
-
-    logger -t "$LOG_TAG" "CRITICO! ${TEMP}°C"
-
-    # Hablar por los parlantes
-    spd-say "ATENCION. Temperatura critica: ${TEMP} grados. El sistema se apagara en dos minutos. Decid no para cancelar." 2>/dev/null || true
-
-    notify-send -u critical -t 12000 \
-        "CRITICO: ${TEMP}°C" \
-        "Apagado en 2 minutos.\nGuarda tu trabajo.\nCancelar: temp-cancel.sh" 2>/dev/null || true
-
-    wall "  TEMPERATURA CRITICA: ${TEMP}°C
-  Apagado en 2 minutos. Guarda tu trabajo.
-  Decid NO para cancelar."
-
-    touch /tmp/nexo-temp-monitor-cooldown
-
-    # Esperar 1 minuto
-    sleep 60
-
-    # Si cancelaron, salir
-    if [ ! -f /tmp/nexo-temp-monitor-cooldown ]; then
-        logger -t "$LOG_TAG" "Apagado cancelado por el usuario"
-        spd-say "Apagado cancelado" 2>/dev/null || true
-        exit 0
-    fi
-
-    # Segundo aviso
-    spd-say "Un minuto restante. Guarda tu trabajo." 2>/dev/null || true
-    notify-send -u critical -t 8000 \
-        "1 minuto restante" \
-        "Apagado en 60 segundos." 2>/dev/null || true
-    wall "  1 minuto para el apagado."
-
-    sleep 30
-
-    if [ ! -f /tmp/nexo-temp-monitor-cooldown ]; then
-        logger -t "$LOG_TAG" "Apagado cancelado por el usuario"
-        spd-say "Apagado cancelado" 2>/dev/null || true
-        exit 0
-    fi
-
-    # Tercer aviso
-    spd-say "Treinta segundos. Ultimo aviso." 2>/dev/null || true
-    notify-send -u critical -t 8000 \
-        "30 segundos" \
-        "Ultimo aviso." 2>/dev/null || true
-    wall "  30 segundos."
-
-    sleep 30
-
-    if [ ! -f /tmp/nexo-temp-monitor-cooldown ]; then
-        logger -t "$LOG_TAG" "Apagado cancelado por el usuario"
-        spd-say "Apagado cancelado" 2>/dev/null || true
-        exit 0
-    fi
-
-    # Apagar y programar reinicio
-    spd-say "Apagando sistema" 2>/dev/null || true
-    sudo /sbin/rtcwake -m off -s "$COOLDOWN"
-    sudo /usr/bin/systemctl poweroff
+# Keep only last 1000 lines
+if [ -f "$LOG_FILE" ]; then
+    tail -1000 "$LOG_FILE" > "$LOG_FILE.tmp" && mv "$LOG_FILE.tmp" "$LOG_FILE"
 fi
